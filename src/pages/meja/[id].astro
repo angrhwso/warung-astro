@@ -1,0 +1,16 @@
+---
+import { supabase } from '../../lib/supabase'
+import MejaPage from '../../components/MejaPage.jsx'
+import Layout from '../../layouts/Layout.astro'
+export const prerender = false
+
+const { id } = Astro.params
+const { data: meja, error } = await supabase.from('meja').select('*').eq('id', id).single()
+if (error || !meja) {
+  throw new Error('Meja tidak ditemukan')
+}
+---
+
+<Layout>
+  <MejaPage client:load mejaId={meja.id} nomorMeja={meja.nomor_meja} />
+</Layout>

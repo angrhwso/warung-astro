@@ -1,0 +1,19 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro'
+import AdminGuard from '../../components/AdminGuard.jsx'
+import AdminDashboard from '../../components/AdminDashboard.jsx'
+---
+
+<AdminLayout title="Dashboard Admin - Warung Astro" active="/admin/dashboard">
+  <AdminGuard client:load>
+    <main class="admin-shell">
+      <header class="admin-topbar">
+        <div>
+          <p class="eyebrow">Warung Roso Nyoto</p>
+          <h1>Dashboard Admin</h1>
+        </div>
+      </header>
+      <AdminDashboard client:load />
+    </main>
+  </AdminGuard>
+</AdminLayout>

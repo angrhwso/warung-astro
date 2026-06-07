@@ -1,0 +1,81 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import ConfettiEffect from '../../components/ConfettiEffect.jsx'
+const { id } = Astro.params
+---
+
+<Layout>
+  <main class="payment-shell">
+    <section class="payment-card" id="app" data-id={id}>
+      <h1>Pembayaran Pesanan #{id}</h1>
+      <p id="status">Memuat...</p>
+      <p class="empty-cart">Selesaikan pembayaran dalam <strong id="timer">15:00</strong>.</p>
+      <div id="qr"></div>
+      <div class="action-row" id="actions"></div>
+    </section>
+  </main>
+  <ConfettiEffect client:load />
+
+  <script type="module">
+      const id = document.getElementById('app').dataset.id
+      let poll = null
+      let remaining = 15 * 60
+      const timerEl = document.getElementById('timer')
+
+      function tickTimer() {
+        const minutes = Math.floor(remaining / 60)
+        const seconds = remaining % 60
+        timerEl.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`
+        remaining = Math.max(0, remaining - 1)
+      }
+
+      async function fetchStatus() {
+        const res = await fetch(`/api/midtrans/status?id=${id}`)
+        const data = await res.json()
+        const { pembayaran, pesanan } = data
+
+        const statusEl = document.getElementById('status')
+        if (!pembayaran) {
+          statusEl.innerText = 'Belum ada pembayaran terdaftar.'
+          return
+        }
+
+        statusEl.innerText = `Status pembayaran: ${pembayaran.status}`
+
+        // If qr_code contains raw QRIS string, render via public QR API
+        const qrEl = document.getElementById('qr')
+        qrEl.innerHTML = ''
+        if (pembayaran.qr_code) {
+          const isUrl = pembayaran.qr_code.startsWith('http')
+          const qrUrl = isUrl
+            ? pembayaran.qr_code
+            : `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(pembayaran.qr_code)}&size=300x300`
+          const img = document.createElement('img')
+          img.src = qrUrl
+          img.alt = 'QRIS'
+          img.width = 300
+          img.height = 300
+          qrEl.appendChild(img)
+        } else if (pembayaran.payment_link) {
+          const a = document.createElement('a')
+          a.href = pembayaran.payment_link
+          a.target = '_blank'
+          a.className = 'button'
+          a.innerText = 'Buka link pembayaran'
+          qrEl.appendChild(a)
+        }
+
+        if (pembayaran.status === 'paid' || pesanan?.status === 'diproses') {
+          statusEl.innerText = 'Pembayaran diterima. Pesanan diproses.'
+          statusEl.className = 'status-badge status-paid'
+          window.dispatchEvent(new Event('warung-payment-success'))
+          if (poll) clearInterval(poll)
+        }
+      }
+
+      fetchStatus()
+      tickTimer()
+      poll = setInterval(fetchStatus, 5000)
+      setInterval(tickTimer, 1000)
+  </script>
+</Layout>

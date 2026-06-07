@@ -1,0 +1,19 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro'
+import AdminGuard from '../../components/AdminGuard.jsx'
+import AdminOrders from '../../components/AdminOrders.jsx'
+---
+
+<AdminLayout title="Pesanan Masuk - Warung Astro" active="/admin/orders">
+  <AdminGuard client:load>
+    <main class="admin-shell">
+      <header class="admin-topbar">
+        <div>
+          <p class="eyebrow">Admin</p>
+          <h1>Pesanan Masuk</h1>
+        </div>
+      </header>
+      <AdminOrders client:load />
+    </main>
+  </AdminGuard>
+</AdminLayout>

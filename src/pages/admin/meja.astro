@@ -1,0 +1,19 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro'
+import AdminGuard from '../../components/AdminGuard.jsx'
+import AdminTableManager from '../../components/AdminTableManager.jsx'
+---
+
+<AdminLayout title="Manajemen Meja - Warung Astro" active="/admin/meja">
+  <AdminGuard client:load>
+    <main class="admin-shell">
+      <header class="admin-topbar">
+        <div>
+          <p class="eyebrow">Admin</p>
+          <h1>Manajemen Meja</h1>
+        </div>
+      </header>
+      <AdminTableManager client:load />
+    </main>
+  </AdminGuard>
+</AdminLayout>

@@ -1,0 +1,19 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro'
+import AdminGuard from '../../components/AdminGuard.jsx'
+import AdminReports from '../../components/AdminReports.jsx'
+---
+
+<AdminLayout title="Laporan - Warung Astro" active="/admin/reports">
+  <AdminGuard client:load>
+    <main class="admin-shell">
+      <header class="admin-topbar">
+        <div>
+          <p class="eyebrow">Admin</p>
+          <h1>Laporan</h1>
+        </div>
+      </header>
+      <AdminReports client:load />
+    </main>
+  </AdminGuard>
+</AdminLayout>

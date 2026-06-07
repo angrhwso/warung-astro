@@ -1,0 +1,141 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
+const currency = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0,
+})
+
+export default function AdminDashboard() {
+  const [orders, setOrders] = useState([])
+  const [lowStock, setLowStock] = useState([])
+  const [newOrders, setNewOrders] = useState(0)
+
+  const today = useMemo(() => {
+    const date = new Date()
+    date.setHours(0, 0, 0, 0)
+    return date.toISOString()
+  }, [])
+
+  const metrics = useMemo(() => {
+    const todayOrders = orders.filter((order) => new Date(order.created_at).toISOString() >= today)
+    return {
+      todayOrders: todayOrders.length,
+      revenue: todayOrders
+        .filter((order) => ['diproses', 'siap', 'selesai'].includes(order.status))
+        .reduce((sum, order) => sum + (order.total || 0), 0),
+      pending: orders.filter((order) => order.status === 'menunggu_pembayaran').length,
+      lowStock: lowStock.length,
+    }
+  }, [lowStock.length, orders, today])
+
+  async function load() {
+    const [{ data: orderData }, { data: stockData }] = await Promise.all([
+      supabase.from('pesanan').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('menu').select('*').lte('stok', 5).order('stok'),
+    ])
+    setOrders(orderData || [])
+    setLowStock(stockData || [])
+  }
+
+  useEffect(() => {
+    load()
+
+    const channel = supabase
+      .channel('admin-dashboard-pesanan')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pesanan' }, (payload) => {
+        load()
+        if (payload.eventType === 'INSERT') {
+          setNewOrders((count) => count + 1)
+          try {
+            const context = new AudioContext()
+            const oscillator = context.createOscillator()
+            oscillator.frequency.value = 880
+            oscillator.connect(context.destination)
+            oscillator.start()
+            oscillator.stop(context.currentTime + 0.12)
+          } catch {}
+        }
+      })
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }, [])
+
+  return (
+    <div className="admin-grid">
+      <section className="stat-grid">
+        <article className="admin-card">
+          <span>Pesanan hari ini</span>
+          <strong className="stat-number">{metrics.todayOrders}</strong>
+        </article>
+        <article className="admin-card">
+          <span>Pendapatan</span>
+          <strong className="stat-number">{currency.format(metrics.revenue)}</strong>
+        </article>
+        <article className="admin-card">
+          <span>Pending</span>
+          <strong className="stat-number">{metrics.pending}</strong>
+        </article>
+        <article className="admin-card">
+          <span>Stok menipis</span>
+          <strong className="stat-number">{metrics.lowStock}</strong>
+        </article>
+      </section>
+
+      {newOrders > 0 && (
+        <section className="admin-card">
+          <strong>{newOrders} pesanan baru</strong>
+          <button className="secondary-button" onClick={() => setNewOrders(0)}>Tandai dibaca</button>
+        </section>
+      )}
+
+      <section className="admin-card">
+        <h2>Pesanan terbaru</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Customer</th>
+              <th>Tipe</th>
+              <th>Total</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.slice(0, 10).map((order) => (
+              <tr key={order.id}>
+                <td>#{order.id}</td>
+                <td>{order.customer_name || '-'}</td>
+                <td>{order.tipe_pesanan}</td>
+                <td>{currency.format(order.total || 0)}</td>
+                <td><span className={`status-badge status-${order.status}`}>{order.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="admin-card">
+        <h2>Stok menipis</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Menu</th>
+              <th>Stok</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lowStock.map((menu) => (
+              <tr key={menu.id}>
+                <td>{menu.nama}</td>
+                <td>{menu.stok}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  )
+}
