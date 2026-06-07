@@ -173,33 +173,7 @@ vercel env add SUPABASE_SERVICE_ROLE_KEY
 vercel env add MIDTRANS_SERVER_KEY
 ```
 
-## 7. Konfigurasi Vercel Secrets Legacy
-
-File `vercel.json` memakai format reference:
-
-```json
-{
-  "env": {
-    "PUBLIC_SUPABASE_URL": "@supabase_url",
-    "PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role",
-    "MIDTRANS_SERVER_KEY": "@midtrans_server_key"
-  }
-}
-```
-
-Jika memakai Vercel dashboard modern, kamu bisa langsung isi environment variables dengan nama asli tanpa membuat secret alias.
-
-Jika ingin memakai secret alias via CLI:
-
-```bash
-vercel secrets add supabase_url "https://your-project-ref.supabase.co"
-vercel secrets add supabase_anon_key "your-anon-key"
-vercel secrets add supabase_service_role "your-service-role-key"
-vercel secrets add midtrans_server_key "your-midtrans-server-key"
-```
-
-## 8. Checklist Setelah Deploy
+## 7. Checklist Setelah Deploy
 
 Cek halaman berikut:
 
@@ -223,7 +197,7 @@ Uji alur utama:
 7. Pastikan status berubah ke `diproses`.
 8. Pastikan stok menu berkurang otomatis.
 
-## 9. Troubleshooting
+## 8. Troubleshooting
 
 Jika build gagal karena adapter:
 
@@ -236,6 +210,7 @@ Jika API route tidak jalan, pastikan:
 - `output: 'server'` ada di `astro.config.mjs`.
 - `adapter: vercel()` ada di `astro.config.mjs`.
 - Env vars sudah diset di Vercel.
+- Nilai env var di Vercel berisi value asli, bukan teks seperti `@supabase_url`.
 
 Jika upload gambar gagal, cek:
 
@@ -255,7 +230,7 @@ Jika webhook tidak update status, cek:
 - `MIDTRANS_SERVER_KEY` di Vercel sama dengan dashboard Midtrans.
 - Log function di Vercel untuk melihat payload/error.
 
-## 10. Catatan Free Tier
+## 9. Catatan Free Tier
 
 Vercel free tier cukup untuk aplikasi kecil, tetapi perhatikan:
 
