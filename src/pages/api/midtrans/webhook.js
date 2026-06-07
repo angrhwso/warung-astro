@@ -9,7 +9,7 @@ function json(data, status = 200) {
 }
 
 function verifySignature(payload) {
-  const serverKey = import.meta.env.MIDTRANS_SERVER_KEY
+  const serverKey = import.meta.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY
   if (!serverKey) return false
 
   const raw = `${payload.order_id}${payload.status_code}${payload.gross_amount}${serverKey}`

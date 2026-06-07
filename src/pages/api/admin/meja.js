@@ -42,13 +42,16 @@ export async function POST({ request }) {
       return json({ error: 'Nomor meja wajib valid' }, 400)
     }
 
+    const payload = {
+      nomor_meja,
+      status: body.status || 'tersedia',
+    }
+
+    if (body.qr_code) payload.qr_code = body.qr_code
+
     const { data, error } = await supabaseAdmin
       .from('meja')
-      .insert({
-        nomor_meja,
-        qr_code: body.qr_code || null,
-        status: body.status || 'tersedia',
-      })
+      .insert(payload)
       .select()
       .single()
 

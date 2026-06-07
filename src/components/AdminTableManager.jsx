@@ -43,10 +43,14 @@ export default function AdminTableManager() {
       })
       if (meja) {
         const url = `${window.location.origin}/meja/${meja.id}`
-        await adminFetch('/api/admin/meja', {
-          method: 'PATCH',
-          body: JSON.stringify({ id: meja.id, qr_code: url }),
-        })
+        try {
+          await adminFetch('/api/admin/meja', {
+            method: 'PATCH',
+            body: JSON.stringify({ id: meja.id, qr_code: url }),
+          })
+        } catch {
+          // Meja tetap berhasil dibuat; QR URL bisa digenerate dari ID jika schema cache belum refresh.
+        }
       }
       setNomor('')
       load()

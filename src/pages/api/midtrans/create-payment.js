@@ -10,14 +10,16 @@ function json(data, status = 200) {
 }
 
 function authHeader() {
-  const serverKey = import.meta.env.MIDTRANS_SERVER_KEY
+  const serverKey = import.meta.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY
   return `Basic ${Buffer.from(`${serverKey}:`).toString('base64')}`
 }
 
 export async function POST({ request }) {
   try {
     if (!supabaseAdmin) return json({ error: 'SUPABASE_SERVICE_ROLE_KEY belum diset' }, 500)
-    if (!import.meta.env.MIDTRANS_SERVER_KEY) return json({ error: 'MIDTRANS_SERVER_KEY belum diset' }, 500)
+    if (!(import.meta.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY)) {
+      return json({ error: 'MIDTRANS_SERVER_KEY belum diset di Vercel' }, 500)
+    }
 
     const body = await request.json()
     const {

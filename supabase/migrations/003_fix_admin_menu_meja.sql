@@ -2,6 +2,18 @@
 -- Run this if admin cannot add menu/table after deploying.
 -- It repairs old trigger functions and makes realtime/policies idempotent.
 
+ALTER TABLE meja ADD COLUMN IF NOT EXISTS qr_code TEXT;
+ALTER TABLE meja ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'tersedia';
+
+ALTER TABLE kategori ADD COLUMN IF NOT EXISTS urutan INTEGER DEFAULT 0;
+
+ALTER TABLE menu ADD COLUMN IF NOT EXISTS deskripsi TEXT;
+ALTER TABLE menu ADD COLUMN IF NOT EXISTS stok INTEGER DEFAULT 0;
+ALTER TABLE menu ADD COLUMN IF NOT EXISTS gambar_url TEXT;
+ALTER TABLE menu ADD COLUMN IF NOT EXISTS id_kategori INTEGER REFERENCES kategori(id);
+ALTER TABLE menu ADD COLUMN IF NOT EXISTS tersedia BOOLEAN DEFAULT true;
+ALTER TABLE menu ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+
 CREATE OR REPLACE FUNCTION log_menu_change()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -93,3 +105,5 @@ CREATE POLICY "authenticated manage log stok" ON log_stok
 CREATE POLICY "authenticated manage log menu" ON log_menu
   FOR ALL USING (auth.role() = 'authenticated')
   WITH CHECK (auth.role() = 'authenticated');
+
+NOTIFY pgrst, 'reload schema';
