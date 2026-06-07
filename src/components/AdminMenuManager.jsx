@@ -19,6 +19,7 @@ export default function AdminMenuManager() {
   const [form, setForm] = useState(emptyForm)
   const [image, setImage] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   async function load() {
     const [{ data: menuData }, { data: categoryData }, { data: logData }] = await Promise.all([
@@ -36,6 +37,24 @@ export default function AdminMenuManager() {
   }, [])
 
   const setField = (name, value) => setForm((prev) => ({ ...prev, [name]: value }))
+
+  const adminFetch = async (url, options = {}) => {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData?.session?.access_token
+    if (!token) throw new Error('Session admin tidak ditemukan. Silakan login ulang.')
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error || 'Request gagal')
+    return data
+  }
 
   const uploadImage = async () => {
     if (!image) return form.gambar_url || null
@@ -60,6 +79,7 @@ export default function AdminMenuManager() {
   const submit = async (event) => {
     event.preventDefault()
     setSaving(true)
+    setError('')
 
     try {
       const gambar_url = await uploadImage()
@@ -74,14 +94,22 @@ export default function AdminMenuManager() {
       }
 
       if (form.id) {
-        await supabase.from('menu').update(payload).eq('id', form.id)
+        await adminFetch('/api/admin/menu', {
+          method: 'PUT',
+          body: JSON.stringify({ ...payload, id: form.id }),
+        })
       } else {
-        await supabase.from('menu').insert(payload)
+        await adminFetch('/api/admin/menu', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
       }
 
       setForm(emptyForm)
       setImage(null)
       await load()
+    } catch (submitError) {
+      setError(submitError.message || 'Gagal menyimpan menu')
     } finally {
       setSaving(false)
     }
@@ -103,19 +131,36 @@ export default function AdminMenuManager() {
 
   const remove = async (id) => {
     if (!confirm('Hapus menu ini?')) return
-    await supabase.from('menu').delete().eq('id', id)
-    load()
+    try {
+      setError('')
+      await adminFetch('/api/admin/menu', {
+        method: 'DELETE',
+        body: JSON.stringify({ id }),
+      })
+      load()
+    } catch (removeError) {
+      setError(removeError.message || 'Gagal menghapus menu')
+    }
   }
 
   const toggle = async (menu) => {
-    await supabase.from('menu').update({ tersedia: !menu.tersedia }).eq('id', menu.id)
-    load()
+    try {
+      setError('')
+      await adminFetch('/api/admin/menu', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: menu.id, tersedia: !menu.tersedia }),
+      })
+      load()
+    } catch (toggleError) {
+      setError(toggleError.message || 'Gagal update status menu')
+    }
   }
 
   return (
     <div className="admin-grid">
       <section className="admin-card">
         <h2>{form.id ? 'Edit menu' : 'Tambah menu'}</h2>
+        {error && <p className="status-badge status-failed">{error}</p>}
         <form className="form-grid" onSubmit={submit}>
           <label>
             Nama
