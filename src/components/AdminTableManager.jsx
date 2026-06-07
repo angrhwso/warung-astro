@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 export default function AdminTableManager() {
   const [tables, setTables] = useState([])
   const [nomor, setNomor] = useState('')
+  const [error, setError] = useState('')
 
   async function load() {
     const { data } = await supabase.from('meja').select('*').order('nomor_meja')
@@ -14,20 +15,57 @@ export default function AdminTableManager() {
     load()
   }, [])
 
+  const adminFetch = async (url, options = {}) => {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData?.session?.access_token
+    if (!token) throw new Error('Session admin tidak ditemukan. Silakan login ulang.')
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error || 'Request gagal')
+    return data
+  }
+
   const create = async (event) => {
     event.preventDefault()
-    const { data } = await supabase.from('meja').insert({ nomor_meja: Number(nomor) }).select().single()
-    if (data) {
-      const url = `${window.location.origin}/meja/${data.id}`
-      await supabase.from('meja').update({ qr_code: url }).eq('id', data.id)
+    try {
+      setError('')
+      const { meja } = await adminFetch('/api/admin/meja', {
+        method: 'POST',
+        body: JSON.stringify({ nomor_meja: Number(nomor) }),
+      })
+      if (meja) {
+        const url = `${window.location.origin}/meja/${meja.id}`
+        await adminFetch('/api/admin/meja', {
+          method: 'PATCH',
+          body: JSON.stringify({ id: meja.id, qr_code: url }),
+        })
+      }
+      setNomor('')
+      load()
+    } catch (createError) {
+      setError(createError.message || 'Gagal menambah meja')
     }
-    setNomor('')
-    load()
   }
 
   const updateStatus = async (id, status) => {
-    await supabase.from('meja').update({ status }).eq('id', id)
-    load()
+    try {
+      setError('')
+      await adminFetch('/api/admin/meja', {
+        method: 'PATCH',
+        body: JSON.stringify({ id, status }),
+      })
+      load()
+    } catch (statusError) {
+      setError(statusError.message || 'Gagal update status meja')
+    }
   }
 
   const downloadQr = (table) => {
@@ -45,6 +83,7 @@ export default function AdminTableManager() {
     <div className="admin-grid">
       <section className="admin-card">
         <h2>Tambah meja</h2>
+        {error && <p className="status-badge status-failed">{error}</p>}
         <form className="action-row" onSubmit={create}>
           <input type="number" min="1" value={nomor} onChange={(event) => setNomor(event.target.value)} placeholder="Nomor meja" required />
           <button type="submit">Tambah</button>
