@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+const statuses = [
+  { value: 'tersedia', label: '🟢 Kosong' },
+  { value: 'dipakai', label: '🟡 Terisi' },
+  { value: 'dibersihkan', label: '🟣 Dibersihkan' },
+]
+
 export default function AdminTableManager() {
   const [tables, setTables] = useState([])
   const [nomor, setNomor] = useState('')
@@ -114,12 +120,15 @@ export default function AdminTableManager() {
                   <td><a href={url} target="_blank" rel="noreferrer">{url}</a></td>
                   <td>
                     <select value={table.status || 'tersedia'} onChange={(event) => updateStatus(table.id, event.target.value)}>
-                      <option value="tersedia">tersedia</option>
-                      <option value="dipakai">dipakai</option>
-                      <option value="dibersihkan">dibersihkan</option>
+                      {statuses.map((status) => (
+                        <option key={status.value} value={status.value}>{status.label}</option>
+                      ))}
                     </select>
                   </td>
-                  <td><button className="secondary-button" onClick={() => downloadQr(table)}>Download QR</button></td>
+                  <td className="flex flex-wrap gap-2">
+                    <button className="secondary-button" type="button" onClick={() => updateStatus(table.id, 'tersedia')}>Reset</button>
+                    <button className="secondary-button" type="button" onClick={() => downloadQr(table)}>Download QR</button>
+                  </td>
                 </tr>
               )
             })}

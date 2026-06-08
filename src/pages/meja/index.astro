@@ -1,0 +1,50 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { supabase } from '../../lib/supabase'
+
+export const prerender = false
+
+const { data: tables, error } = supabase
+  ? await supabase.from('meja').select('id, nomor_meja, status').order('nomor_meja')
+  : { data: [], error: new Error('Supabase belum dikonfigurasi') }
+
+const statusLabel = {
+  tersedia: '🟢 Kosong',
+  dipakai: '🟡 Terisi',
+  dibersihkan: '🟣 Dibersihkan',
+}
+---
+
+<Layout title="Denah Meja - Warung Astro">
+  <main class="store-shell">
+    <section class="store-hero">
+      <div>
+        <p class="eyebrow">Denah Meja</p>
+        <h1>Pilih meja kosong dari denah warung</h1>
+        <p>Meja kosong bisa dibuka langsung untuk scan QR dan mulai pesan.</p>
+      </div>
+    </section>
+
+    {error ? (
+      <section class="admin-card">
+        <p class="status-badge status-failed">{error.message}</p>
+      </section>
+    ) : (
+      <section class="meja-grid">
+        {(tables || []).map((table) => {
+          const canOpen = (table.status || 'tersedia') === 'tersedia'
+          return (
+            <a
+              href={canOpen ? `/meja/${table.id}` : '#'}
+              class={`meja-card ${table.status || 'tersedia'} ${canOpen ? 'is-open' : 'is-disabled'}`}
+              aria-disabled={!canOpen}
+            >
+              <span class="meja-number">Meja {table.nomor_meja}</span>
+              <strong>{statusLabel[table.status || 'tersedia']}</strong>
+            </a>
+          )
+        })}
+      </section>
+    )}
+  </main>
+</Layout>

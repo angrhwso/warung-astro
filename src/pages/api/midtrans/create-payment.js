@@ -1,18 +1,12 @@
-import MidtransClient from 'midtrans-client'
 import { supabaseAdmin } from '../../../lib/supabase'
-
-const MIDTRANS_API = 'https://api.midtrans.com/v2/charge'
+import { sendAdminWhatsappNotification } from '../../../lib/whatsapp'
+import MidtransClient from 'midtrans-client'
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
-}
-
-function authHeader() {
-  const serverKey = import.meta.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY
-  return `Basic ${Buffer.from(`${serverKey}:`).toString('base64')}`
 }
 
 function getMidtransConfig() {
@@ -30,6 +24,9 @@ export async function POST({ request }) {
     if (!serverKey) {
       return json({ error: 'MIDTRANS_SERVER_KEY belum diset di Vercel' }, 500)
     }
+    if (!clientKey) {
+      return json({ error: 'PUBLIC_MIDTRANS_CLIENT_KEY belum diset di Vercel' }, 500)
+    }
 
     const body = await request.json()
     const {
@@ -40,6 +37,7 @@ export async function POST({ request }) {
       customer_name,
       customer_phone,
       catatan,
+      metode_pembayaran = 'midtrans',
     } = body
 
     if (!Array.isArray(cart) || cart.length === 0) return json({ error: 'Cart kosong' }, 400)
@@ -98,89 +96,81 @@ export async function POST({ request }) {
 
     if (detailError) throw detailError
 
-    const orderId = `pesanan-${pesanan.id}`
-
-    if (clientKey) {
-      const snap = new MidtransClient.Snap({
-        isProduction,
-        serverKey,
-        clientKey,
-      })
-
-      const transaction = await snap.createTransaction({
-        transaction_details: {
-          order_id: orderId,
-          gross_amount: total,
-        },
-        item_details: details.map((item) => ({
-          id: item.id_menu,
-          name: menuMap.get(item.id_menu)?.nama || `Menu #${item.id_menu}`,
-          quantity: item.jumlah,
-          price: item.harga_saat_pesan,
-        })),
-        customer_details: {
-          first_name: customer_name || 'Customer',
-          phone: customer_phone || undefined,
-        },
-        enabled_payments: ['qris'],
-      })
-
+    if (metode_pembayaran === 'kasir') {
       await supabaseAdmin.from('pembayaran').insert({
         id_pesanan: pesanan.id,
-        metode: 'qris',
-        snap_token: transaction.token || null,
-        redirect_url: transaction.redirect_url || null,
+        metode: 'tunai',
         status: 'pending',
       })
 
-      return json({
-        pesanan,
-        midtrans: transaction,
-        snapToken: transaction.token || null,
-        redirectUrl: transaction.redirect_url || null,
+      sendAdminWhatsappNotification({
+        orderId: pesanan.id,
+        total,
+        items: details.map((item) => ({
+          nama: menuMap.get(item.id_menu)?.nama || `Menu #${item.id_menu}`,
+          jumlah: item.jumlah,
+        })),
+      }).catch((error) => {
+        console.error('whatsapp notification error', error)
       })
+
+      return json({ pesanan, pembayaran: { metode: 'tunai', status: 'pending' } })
     }
 
-    const midtransResponse = await fetch(MIDTRANS_API, {
-      method: 'POST',
-      headers: {
-        Authorization: authHeader(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        payment_type: 'qris',
-        transaction_details: {
-          order_id: orderId,
-          gross_amount: total,
-        },
-        customer_details: {
-          first_name: customer_name || 'Customer',
-          phone: customer_phone || undefined,
-        },
-      }),
+    const orderId = `pesanan-${pesanan.id}`
+
+    const snap = new MidtransClient.Snap({
+      isProduction,
+      serverKey,
+      clientKey,
     })
 
-    const midtrans = await midtransResponse.json()
-    if (!midtransResponse.ok) {
-      await supabaseAdmin.from('pesanan').update({ status: 'dibatalkan' }).eq('id', pesanan.id)
-      return json({ error: midtrans.status_message || 'Midtrans gagal membuat transaksi', midtrans }, 502)
-    }
-
-    const paymentLink = midtrans.actions?.find((action) => action.name === 'generate-qr-code')?.url
-      || midtrans.actions?.[0]?.url
-      || null
-    const qrCode = midtrans.qr_string || paymentLink
+    const transaction = await snap.createTransaction({
+      transaction_details: {
+        order_id: orderId,
+        gross_amount: total,
+      },
+      item_details: details.map((item) => ({
+        id: item.id_menu,
+        name: menuMap.get(item.id_menu)?.nama || `Menu #${item.id_menu}`,
+        quantity: item.jumlah,
+        price: item.harga_saat_pesan,
+      })),
+      customer_details: {
+        first_name: customer_name || 'Customer',
+        phone: customer_phone || undefined,
+      },
+      enabled_payments: ['gopay', 'shopeepay', 'qris', 'bank_transfer', 'credit_card'],
+      bank_transfer: {
+        banks: ['bca', 'bni', 'bri', 'mandiri'],
+      },
+    })
 
     await supabaseAdmin.from('pembayaran').insert({
       id_pesanan: pesanan.id,
-      metode: 'qris',
-      transaction_id: midtrans.transaction_id || null,
-      payment_link: paymentLink,
-      qr_code: qrCode,
-      status: midtrans.transaction_status === 'settlement' ? 'paid' : 'pending',
+      metode: 'midtrans',
+      snap_token: transaction.token || null,
+      redirect_url: transaction.redirect_url || null,
+      status: 'pending',
     })
 
-    return json({ midtrans, pesanan, paymentLink, qrCode })
+    sendAdminWhatsappNotification({
+      orderId: pesanan.id,
+      total,
+      items: details.map((item) => ({
+        nama: menuMap.get(item.id_menu)?.nama || `Menu #${item.id_menu}`,
+        jumlah: item.jumlah,
+      })),
+    }).catch((error) => {
+      console.error('whatsapp notification error', error)
+    })
+
+    return json({
+      pesanan,
+      midtrans: transaction,
+      snapToken: transaction.token || null,
+      redirectUrl: transaction.redirect_url || null,
+    })
   } catch (error) {
     console.error('create-payment error', error)
     return json({ error: error.message || 'Checkout gagal' }, 500)

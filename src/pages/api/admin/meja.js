@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 
+const tableStatuses = new Set(['tersedia', 'dipakai', 'dibersihkan'])
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -47,6 +49,10 @@ export async function POST({ request }) {
       status: body.status || 'tersedia',
     }
 
+    if (!tableStatuses.has(payload.status)) {
+      return json({ error: 'Status meja tidak valid' }, 400)
+    }
+
     if (body.qr_code) payload.qr_code = body.qr_code
 
     const { data, error } = await supabaseAdmin
@@ -71,7 +77,12 @@ export async function PATCH({ request }) {
     if (!id) return json({ error: 'ID meja wajib ada' }, 400)
 
     const payload = {}
-    if (body.status) payload.status = body.status
+    if (body.status) {
+      if (!tableStatuses.has(body.status)) {
+        return json({ error: 'Status meja tidak valid' }, 400)
+      }
+      payload.status = body.status
+    }
     if (body.qr_code !== undefined) payload.qr_code = body.qr_code
     if (body.nomor_meja !== undefined) payload.nomor_meja = Number(body.nomor_meja)
 

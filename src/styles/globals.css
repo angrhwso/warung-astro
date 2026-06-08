@@ -542,6 +542,48 @@
     @apply fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-warm;
     background: linear-gradient(135deg, var(--danger), var(--primary));
   }
+
+  .meja-grid {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .meja-card {
+    @apply grid gap-3 rounded-3xl border p-5 no-underline shadow-soft;
+    border-color: var(--line);
+    background: var(--paper);
+    color: var(--text);
+  }
+
+  .meja-card strong {
+    @apply text-lg font-black;
+  }
+
+  .meja-card.is-open:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 18px 32px rgba(42, 157, 143, .16);
+  }
+
+  .meja-card.is-disabled {
+    opacity: .72;
+    cursor: not-allowed;
+  }
+
+  .meja-card.tersedia {
+    border-color: rgba(42, 157, 143, .28);
+  }
+
+  .meja-card.dipakai {
+    border-color: rgba(233, 196, 106, .35);
+  }
+
+  .meja-card.dibersihkan {
+    border-color: rgba(167, 139, 250, .35);
+  }
+
+  .meja-number {
+    @apply text-xs font-black uppercase tracking-[.14em];
+    color: var(--muted);
+  }
 }
 
 @layer utilities {

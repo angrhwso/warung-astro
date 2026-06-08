@@ -1,19 +1,42 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const statuses = ['menunggu_pembayaran', 'diproses', 'siap', 'selesai', 'dibatalkan']
+const statuses = [
+  { value: 'menunggu_pembayaran', label: '🟡 Menunggu' },
+  { value: 'diproses', label: '🔵 Diproses' },
+  { value: 'siap', label: '🟣 Siap' },
+  { value: 'selesai', label: '🟢 Selesai' },
+  { value: 'dibatalkan', label: '🔴 Dibatalkan' },
+]
 const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState([])
   const [filter, setFilter] = useState('all')
+  const [newOrderCount, setNewOrderCount] = useState(0)
+  const [error, setError] = useState('')
+
+  const playDing = async () => {
+    try {
+      const audio = new Audio('/ding.mp3')
+      await audio.play()
+    } catch {
+      try {
+        const context = new AudioContext()
+        const oscillator = context.createOscillator()
+        oscillator.frequency.value = 880
+        oscillator.connect(context.destination)
+        oscillator.start()
+        oscillator.stop(context.currentTime + 0.12)
+      } catch {}
+    }
+  }
 
   async function load() {
     const { data } = await supabase
       .from('pesanan')
       .select('*, meja(nomor_meja), detail_pesanan(*, menu(nama))')
       .order('created_at', { ascending: false })
-      .limit(100)
     setOrders(data || [])
   }
 
@@ -21,13 +44,24 @@ export default function AdminOrders() {
     load()
     const channel = supabase
       .channel('admin-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pesanan' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pesanan' }, (payload) => {
+        load()
+        if (payload.eventType === 'INSERT') {
+          setNewOrderCount((count) => count + 1)
+          playDing()
+        }
+      })
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [])
 
   const updateStatus = async (id, status) => {
-    await supabase.from('pesanan').update({ status }).eq('id', id)
+    setError('')
+    const { error: updateError } = await supabase.from('pesanan').update({ status }).eq('id', id)
+    if (updateError) {
+      setError(updateError.message || 'Gagal update status')
+      return
+    }
     load()
   }
 
@@ -35,14 +69,23 @@ export default function AdminOrders() {
 
   return (
     <section className="admin-card">
-      <div className="category-tabs">
-        <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>Semua</button>
-        {statuses.map((status) => (
-          <button className={filter === status ? 'active' : ''} onClick={() => setFilter(status)} key={status}>
-            {status}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="category-tabs">
+          <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>Semua</button>
+          {statuses.map((status) => (
+            <button className={filter === status.value ? 'active' : ''} onClick={() => setFilter(status.value)} key={status.value}>
+              {status.label}
+            </button>
+          ))}
+        </div>
+        {newOrderCount > 0 && (
+          <button className="secondary-button" type="button" onClick={() => setNewOrderCount(0)}>
+            {newOrderCount} pesanan baru
           </button>
-        ))}
+        )}
       </div>
+
+      {error && <p className="status-badge status-failed mb-3">{error}</p>}
 
       <table>
         <thead>
@@ -74,10 +117,10 @@ export default function AdminOrders() {
                 ))}
               </td>
               <td>{currency.format(order.total || 0)}</td>
-              <td><span className={`status-badge status-${order.status}`}>{order.status}</span></td>
+              <td><span className={`status-badge status-${order.status}`}>{statuses.find((item) => item.value === order.status)?.label || order.status}</span></td>
               <td>
                 <select value={order.status} onChange={(event) => updateStatus(order.id, event.target.value)}>
-                  {statuses.map((status) => <option value={status} key={status}>{status}</option>)}
+                  {statuses.map((status) => <option value={status.value} key={status.value}>{status.label}</option>)}
                 </select>
               </td>
             </tr>

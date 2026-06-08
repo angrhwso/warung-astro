@@ -1,7 +1,7 @@
 // src/components/CheckoutButton.jsx
 import { useState } from 'react'
 
-export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, disabled = false }) {
+export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, metodePembayaran = 'midtrans', disabled = false }) {
   const [loading, setLoading] = useState(false)
 
   const handleCheckout = async () => {
@@ -16,6 +16,7 @@ export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, disa
         customer_name: cart.customerName || null,
         customer_phone: cart.customerPhone || null,
         catatan: cart.catatan || null,
+        metode_pembayaran: metodePembayaran,
       }
 
       const res = await fetch('/api/midtrans/create-payment', {
@@ -39,7 +40,7 @@ export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, disa
 
   return (
     <button className="primary-button" onClick={handleCheckout} disabled={loading || disabled}>
-      {loading ? 'Memproses...' : 'Bayar dengan QRIS'}
+      {loading ? 'Memproses...' : metodePembayaran === 'kasir' ? 'Kirim ke Kasir' : 'Lanjut ke Pembayaran'}
     </button>
   )
 }
