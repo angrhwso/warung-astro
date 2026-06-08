@@ -11,6 +11,7 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([])
   const [lowStock, setLowStock] = useState([])
   const [newOrders, setNewOrders] = useState(0)
+  const [testingMode, setTestingMode] = useState(false)
 
   const today = useMemo(() => {
     const date = new Date()
@@ -40,6 +41,10 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
+    try {
+      setTestingMode(localStorage.getItem('warung-midtrans-testing') === '1')
+    } catch {}
+
     load()
 
     const channel = supabase
@@ -62,6 +67,14 @@ export default function AdminDashboard() {
 
     return () => supabase.removeChannel(channel)
   }, [])
+
+  const toggleTestingMode = () => {
+    const next = !testingMode
+    setTestingMode(next)
+    try {
+      localStorage.setItem('warung-midtrans-testing', next ? '1' : '0')
+    } catch {}
+  }
 
   return (
     <div className="admin-grid">
@@ -90,6 +103,21 @@ export default function AdminDashboard() {
           <button className="secondary-button" onClick={() => setNewOrders(0)}>Tandai dibaca</button>
         </section>
       )}
+
+      <section className="admin-card">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-xl font-black">Mode Testing Midtrans</h2>
+            <p className="empty-cart">Jika aktif, halaman pembayaran akan melewati cek status Midtrans dan langsung sukses.</p>
+          </div>
+          <button className="secondary-button" type="button" onClick={toggleTestingMode}>
+            {testingMode ? 'Matikan Testing' : 'Aktifkan Testing'}
+          </button>
+        </div>
+        <p className={`status-badge ${testingMode ? 'status-selesai' : 'status-pending'} mt-3`}>
+          {testingMode ? 'Testing aktif' : 'Testing nonaktif'}
+        </p>
+      </section>
 
       <section className="admin-card">
         <h2>Pesanan terbaru</h2>

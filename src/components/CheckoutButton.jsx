@@ -4,6 +4,15 @@ import { useState } from 'react'
 export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, metodePembayaran = 'midtrans', disabled = false }) {
   const [loading, setLoading] = useState(false)
 
+  const getTestingMode = () => {
+    if (typeof window === 'undefined') return false
+    try {
+      return localStorage.getItem('warung-midtrans-testing') === '1'
+    } catch {
+      return false
+    }
+  }
+
   const handleCheckout = async () => {
     if (disabled || loading) return
     setLoading(true)
@@ -30,7 +39,8 @@ export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, meto
 
       // redirect to payment page (will show QR/links)
       const pesananId = data.pesanan?.id || (data.midtrans && data.midtrans.order_id?.split('-')[1])
-      window.location.href = `/pembayaran/${pesananId}`
+      const testing = getTestingMode() ? '?testing=1' : ''
+      window.location.href = `/pembayaran/${pesananId}${testing}`
     } catch (err) {
       console.error(err)
       alert('Gagal melakukan checkout: ' + (err.message || err))

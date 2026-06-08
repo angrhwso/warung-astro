@@ -17,6 +17,7 @@ const midtransIsProduction =
   midtransModeEnv !== undefined
     ? String(midtransModeEnv) === 'true'
     : !String(midtransClientKey || '').startsWith('SB-')
+const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
 ---
 
 <Layout>
@@ -27,12 +28,15 @@ const midtransIsProduction =
       data-id={id}
       data-client-key={midtransClientKey}
       data-is-production={midtransIsProduction ? 'true' : 'false'}
+      data-testing={Astro.url.searchParams.get('testing') === '1' ? 'true' : 'false'}
+      data-whatsapp-cs={whatsappCs}
     >
       <h1>Pembayaran Pesanan #{id}</h1>
-      <p id="status">Memuat...</p>
+      <p id="status" class="payment-waiting">Menunggu pembayaran...</p>
       <p class="empty-cart">Selesaikan pembayaran dalam <strong id="timer">15:00</strong>.</p>
       <div id="qr"></div>
       <div class="action-row" id="actions"></div>
+      <div id="timeoutAction"></div>
     </section>
   </main>
   <ConfettiEffect client:load />
@@ -41,87 +45,143 @@ const midtransIsProduction =
       const id = document.getElementById('app').dataset.id
       const clientKey = document.getElementById('app').dataset.clientKey || ''
       const isProduction = document.getElementById('app').dataset.isProduction === 'true'
+      const testingMode = document.getElementById('app').dataset.testing === 'true'
+      const whatsappCs = document.getElementById('app').dataset.whatsappCs || ''
       let poll = null
       let remaining = 15 * 60
+      let retryCount404 = 0
+      let timedOut = false
       const timerEl = document.getElementById('timer')
       let snapLoadingPromise = null
+      const statusEl = document.getElementById('status')
+      const qrEl = document.getElementById('qr')
+      const timeoutAction = document.getElementById('timeoutAction')
 
       function tickTimer() {
+        if (timedOut) return
         const minutes = Math.floor(remaining / 60)
         const seconds = remaining % 60
         timerEl.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`
+        if (remaining <= 0) {
+          handleTimeout()
+          return
+        }
         remaining = Math.max(0, remaining - 1)
       }
 
-      async function fetchStatus() {
-        const res = await fetch(`/api/midtrans/status?id=${id}`)
-        const data = await res.json()
-        const { pembayaran, pesanan } = data
+      function renderWaiting() {
+        statusEl.className = 'status-badge payment-waiting'
+        statusEl.innerText = 'Menunggu pembayaran...'
+        qrEl.innerHTML = '<div class="payment-waiting-box">Menunggu pembayaran...</div>'
+      }
 
-        const statusEl = document.getElementById('status')
-        if (!pembayaran) {
-          statusEl.innerText = 'Belum ada pembayaran terdaftar.'
+      async function renderSnapButton(snapToken) {
+        qrEl.innerHTML = ''
+        const button = document.createElement('button')
+        button.className = 'primary-button'
+        button.type = 'button'
+        button.innerText = 'Buka Pembayaran Midtrans'
+        button.onclick = async () => {
+          try {
+            await loadSnap()
+            window.snap.pay(snapToken, {
+              onSuccess: () => {
+                renderSuccess('Pembayaran berhasil.')
+              },
+              onPending: () => {
+                statusEl.innerText = 'Pembayaran masih menunggu konfirmasi.'
+              },
+              onError: () => {
+                statusEl.innerText = 'Pembayaran gagal dibuka.'
+              },
+              onClose: () => {
+                statusEl.innerText = 'Popup pembayaran ditutup.'
+              },
+            })
+          } catch (error) {
+            statusEl.innerText = error.message || 'Gagal memuat Midtrans'
+          }
+        }
+        qrEl.appendChild(button)
+      }
+
+      function renderSuccess(message = 'Pembayaran diterima. Pesanan diproses.') {
+        statusEl.innerText = message
+        statusEl.className = 'status-badge status-paid'
+        qrEl.innerHTML = ''
+        timeoutAction.innerHTML = ''
+        if (poll) clearInterval(poll)
+        timedOut = true
+        window.dispatchEvent(new Event('warung-payment-success'))
+      }
+
+      function handleTimeout() {
+        timedOut = true
+        if (poll) clearInterval(poll)
+        statusEl.className = 'status-badge status-failed'
+        statusEl.innerText = 'Waktu habis, silakan hubungi kasir'
+        qrEl.innerHTML = ''
+        timeoutAction.innerHTML = ''
+        if (whatsappCs) {
+          const a = document.createElement('a')
+          a.className = 'footer-whatsapp'
+          a.href = `https://wa.me/${whatsappCs}`
+          a.target = '_blank'
+          a.rel = 'noreferrer'
+          a.innerText = 'WhatsApp CS'
+          timeoutAction.appendChild(a)
+        }
+      }
+
+      async function fetchStatus() {
+        if (timedOut) return
+
+        if (testingMode) {
+          renderSuccess('Mode testing aktif. Pembayaran dianggap sukses.')
           return
         }
 
-        statusEl.innerText = `Status pembayaran: ${pembayaran.status}`
+        try {
+          const res = await fetch(`/api/cek-status?id=${id}`)
+          const data = await res.json()
 
-        // If qr_code contains raw QRIS string, render via public QR API
-        const qrEl = document.getElementById('qr')
-        qrEl.innerHTML = ''
-        if (pembayaran.snap_token && clientKey) {
-          const button = document.createElement('button')
-          button.className = 'primary-button'
-          button.type = 'button'
-          button.innerText = 'Buka Pembayaran Midtrans'
-          button.onclick = async () => {
-            try {
-              await loadSnap()
-              window.snap.pay(pembayaran.snap_token, {
-                onSuccess: () => {
-                  statusEl.innerText = 'Pembayaran berhasil.'
-                  statusEl.className = 'status-badge status-paid'
-                },
-                onPending: () => {
-                  statusEl.innerText = 'Pembayaran masih menunggu konfirmasi.'
-                },
-                onError: () => {
-                  statusEl.innerText = 'Pembayaran gagal dibuka.'
-                },
-                onClose: () => {
-                  statusEl.innerText = 'Popup pembayaran ditutup.'
-                },
-              })
-            } catch (error) {
-              statusEl.innerText = error.message || 'Gagal memuat Midtrans'
+          if (res.status === 404 || data.not_found) {
+            retryCount404 += 1
+            renderWaiting()
+            if (retryCount404 >= 10) {
+              statusEl.innerText = 'Menunggu pembayaran...'
             }
+            return
           }
-          qrEl.appendChild(button)
-        } else if (pembayaran.qr_code) {
-          const isUrl = pembayaran.qr_code.startsWith('http')
-          const qrUrl = isUrl
-            ? pembayaran.qr_code
-            : `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(pembayaran.qr_code)}&size=300x300`
-          const img = document.createElement('img')
-          img.src = qrUrl
-          img.alt = 'QRIS'
-          img.width = 300
-          img.height = 300
-          qrEl.appendChild(img)
-        } else if (pembayaran.payment_link) {
-          const a = document.createElement('a')
-          a.href = pembayaran.payment_link
-          a.target = '_blank'
-          a.className = 'button'
-          a.innerText = 'Buka link pembayaran'
-          qrEl.appendChild(a)
-        }
 
-        if (pembayaran.status === 'paid' || pesanan?.status === 'diproses') {
-          statusEl.innerText = 'Pembayaran diterima. Pesanan diproses.'
-          statusEl.className = 'status-badge status-paid'
-          window.dispatchEvent(new Event('warung-payment-success'))
-          if (poll) clearInterval(poll)
+          if (!res.ok) {
+            renderWaiting()
+            return
+          }
+
+          const currentStatus = data.status || data.pembayaran?.status || data.midtrans?.transaction_status
+          if (['paid', 'settlement', 'capture'].includes(currentStatus)) {
+            renderSuccess('Pembayaran diterima. Pesanan diproses.')
+            return
+          }
+
+          if (['failed', 'deny', 'cancel', 'expire', 'failure'].includes(currentStatus)) {
+            statusEl.className = 'status-badge status-failed'
+            statusEl.innerText = 'Pembayaran gagal. Silakan coba lagi atau hubungi kasir.'
+            return
+          }
+
+          if (data.pembayaran?.snap_token && clientKey && !testingMode) {
+            statusEl.className = 'status-badge payment-waiting'
+            statusEl.innerText = 'Menunggu pembayaran...'
+            await renderSnapButton(data.pembayaran.snap_token)
+            return
+          }
+
+          renderWaiting()
+        } catch (error) {
+          console.error(error)
+          renderWaiting()
         }
       }
 
@@ -145,9 +205,10 @@ const midtransIsProduction =
         return snapLoadingPromise
       }
 
+      renderWaiting()
       fetchStatus()
       tickTimer()
-      poll = setInterval(fetchStatus, 5000)
+      poll = setInterval(fetchStatus, 3000)
       setInterval(tickTimer, 1000)
   </script>
 </Layout>

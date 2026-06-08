@@ -584,6 +584,21 @@
     @apply text-xs font-black uppercase tracking-[.14em];
     color: var(--muted);
   }
+
+  .payment-waiting {
+    @apply rounded-full px-4 py-2 text-sm font-black;
+    animation: paymentPulse 1.5s ease-in-out infinite;
+    background: rgba(42, 157, 143, .14);
+    color: var(--secondary);
+  }
+
+  .payment-waiting-box {
+    @apply grid min-h-[220px] place-items-center rounded-[2rem] border-2 border-dashed px-6 py-8 text-lg font-black;
+    animation: paymentPulse 1.5s ease-in-out infinite;
+    border-color: rgba(42, 157, 143, .35);
+    background: rgba(42, 157, 143, .06);
+    color: var(--secondary);
+  }
 }
 
 @layer utilities {
@@ -627,6 +642,17 @@
   100% {
     opacity: 0;
     transform: translate3d(30px, 110vh, 0) rotate(720deg);
+  }
+}
+
+@keyframes paymentPulse {
+  0%, 100% {
+    opacity: .72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.01);
   }
 }
 
