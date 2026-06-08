@@ -5,9 +5,11 @@ const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || runtimeEnv.PUBLIC_SUP
 const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || runtimeEnv.PUBLIC_SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY || runtimeEnv.SUPABASE_SERVICE_ROLE_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null
 
 // Untuk admin (server-side saja)
 export const supabaseAdmin = supabaseServiceRoleKey
-  ? createClient(supabaseUrl, supabaseServiceRoleKey)
+  ? (supabaseUrl ? createClient(supabaseUrl, supabaseServiceRoleKey) : null)
   : null

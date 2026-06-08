@@ -5,12 +5,34 @@ import Layout from '../../layouts/Layout.astro'
 export const prerender = false
 
 const { id } = Astro.params
-const { data: meja, error } = await supabase.from('meja').select('*').eq('id', id).single()
-if (error || !meja) {
-  throw new Error('Meja tidak ditemukan')
+let meja = null
+let pageError = ''
+
+if (!supabase) {
+  pageError = 'Konfigurasi Supabase belum lengkap di environment deployment.'
+} else {
+  const { data, error } = await supabase.from('meja').select('*').eq('id', id).single()
+  if (error || !data) {
+    pageError = 'Meja tidak ditemukan.'
+  } else {
+    meja = data
+  }
 }
 ---
 
 <Layout>
-  <MejaPage client:load mejaId={meja.id} nomorMeja={meja.nomor_meja} />
+  {meja ? (
+    <MejaPage client:load mejaId={meja.id} nomorMeja={meja.nomor_meja} />
+  ) : (
+    <main class="store-shell">
+      <section class="store-hero">
+        <div>
+          <p class="eyebrow">QR Meja</p>
+          <h1>{pageError}</h1>
+          <p>Silakan cek kembali tautan QR atau lengkapi environment Supabase di Vercel.</p>
+        </div>
+        <a class="admin-link" href="/">Kembali ke beranda</a>
+      </section>
+    </main>
+  )}
 </Layout>
