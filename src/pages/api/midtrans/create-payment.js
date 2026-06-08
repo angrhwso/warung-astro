@@ -1,3 +1,4 @@
+import MidtransClient from 'midtrans-client'
 import { supabaseAdmin } from '../../../lib/supabase'
 
 const MIDTRANS_API = 'https://api.midtrans.com/v2/charge'
@@ -14,10 +15,19 @@ function authHeader() {
   return `Basic ${Buffer.from(`${serverKey}:`).toString('base64')}`
 }
 
+function getMidtransConfig() {
+  const serverKey = import.meta.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY
+  const clientKey = import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || process.env.PUBLIC_MIDTRANS_CLIENT_KEY
+  const isProduction = String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || process.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true'
+
+  return { serverKey, clientKey, isProduction }
+}
+
 export async function POST({ request }) {
   try {
     if (!supabaseAdmin) return json({ error: 'SUPABASE_SERVICE_ROLE_KEY belum diset' }, 500)
-    if (!(import.meta.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY)) {
+    const { serverKey, clientKey, isProduction } = getMidtransConfig()
+    if (!serverKey) {
       return json({ error: 'MIDTRANS_SERVER_KEY belum diset di Vercel' }, 500)
     }
 
@@ -89,6 +99,48 @@ export async function POST({ request }) {
     if (detailError) throw detailError
 
     const orderId = `pesanan-${pesanan.id}`
+
+    if (clientKey) {
+      const snap = new MidtransClient.Snap({
+        isProduction,
+        serverKey,
+        clientKey,
+      })
+
+      const transaction = await snap.createTransaction({
+        transaction_details: {
+          order_id: orderId,
+          gross_amount: total,
+        },
+        item_details: details.map((item) => ({
+          id: item.id_menu,
+          name: menuMap.get(item.id_menu)?.nama || `Menu #${item.id_menu}`,
+          quantity: item.jumlah,
+          price: item.harga_saat_pesan,
+        })),
+        customer_details: {
+          first_name: customer_name || 'Customer',
+          phone: customer_phone || undefined,
+        },
+        enabled_payments: ['qris'],
+      })
+
+      await supabaseAdmin.from('pembayaran').insert({
+        id_pesanan: pesanan.id,
+        metode: 'qris',
+        snap_token: transaction.token || null,
+        redirect_url: transaction.redirect_url || null,
+        status: 'pending',
+      })
+
+      return json({
+        pesanan,
+        midtrans: transaction,
+        snapToken: transaction.token || null,
+        redirectUrl: transaction.redirect_url || null,
+      })
+    }
+
     const midtransResponse = await fetch(MIDTRANS_API, {
       method: 'POST',
       headers: {
@@ -128,7 +180,7 @@ export async function POST({ request }) {
       status: midtrans.transaction_status === 'settlement' ? 'paid' : 'pending',
     })
 
-    return json({ midtrans, pesanan })
+    return json({ midtrans, pesanan, paymentLink, qrCode })
   } catch (error) {
     console.error('create-payment error', error)
     return json({ error: error.message || 'Checkout gagal' }, 500)

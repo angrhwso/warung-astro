@@ -2,11 +2,19 @@
 import Layout from '../../layouts/Layout.astro'
 import ConfettiEffect from '../../components/ConfettiEffect.jsx'
 const { id } = Astro.params
+const midtransClientKey = import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || ''
+const midtransIsProduction = String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true'
 ---
 
 <Layout>
   <main class="payment-shell">
-    <section class="payment-card" id="app" data-id={id}>
+    <section
+      class="payment-card"
+      id="app"
+      data-id={id}
+      data-client-key={midtransClientKey}
+      data-is-production={midtransIsProduction ? 'true' : 'false'}
+    >
       <h1>Pembayaran Pesanan #{id}</h1>
       <p id="status">Memuat...</p>
       <p class="empty-cart">Selesaikan pembayaran dalam <strong id="timer">15:00</strong>.</p>
@@ -18,9 +26,12 @@ const { id } = Astro.params
 
   <script type="module">
       const id = document.getElementById('app').dataset.id
+      const clientKey = document.getElementById('app').dataset.clientKey || ''
+      const isProduction = document.getElementById('app').dataset.isProduction === 'true'
       let poll = null
       let remaining = 15 * 60
       const timerEl = document.getElementById('timer')
+      let snapLoadingPromise = null
 
       function tickTimer() {
         const minutes = Math.floor(remaining / 60)
@@ -45,7 +56,35 @@ const { id } = Astro.params
         // If qr_code contains raw QRIS string, render via public QR API
         const qrEl = document.getElementById('qr')
         qrEl.innerHTML = ''
-        if (pembayaran.qr_code) {
+        if (pembayaran.snap_token && clientKey) {
+          const button = document.createElement('button')
+          button.className = 'primary-button'
+          button.type = 'button'
+          button.innerText = 'Buka Pembayaran Midtrans'
+          button.onclick = async () => {
+            try {
+              await loadSnap()
+              window.snap.pay(pembayaran.snap_token, {
+                onSuccess: () => {
+                  statusEl.innerText = 'Pembayaran berhasil.'
+                  statusEl.className = 'status-badge status-paid'
+                },
+                onPending: () => {
+                  statusEl.innerText = 'Pembayaran masih menunggu konfirmasi.'
+                },
+                onError: () => {
+                  statusEl.innerText = 'Pembayaran gagal dibuka.'
+                },
+                onClose: () => {
+                  statusEl.innerText = 'Popup pembayaran ditutup.'
+                },
+              })
+            } catch (error) {
+              statusEl.innerText = error.message || 'Gagal memuat Midtrans'
+            }
+          }
+          qrEl.appendChild(button)
+        } else if (pembayaran.qr_code) {
           const isUrl = pembayaran.qr_code.startsWith('http')
           const qrUrl = isUrl
             ? pembayaran.qr_code
@@ -71,6 +110,26 @@ const { id } = Astro.params
           window.dispatchEvent(new Event('warung-payment-success'))
           if (poll) clearInterval(poll)
         }
+      }
+
+      async function loadSnap() {
+        if (window.snap) return window.snap
+        if (!clientKey) throw new Error('MIDTRANS client key belum diset')
+        if (snapLoadingPromise) return snapLoadingPromise
+
+        snapLoadingPromise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = isProduction
+            ? 'https://app.midtrans.com/snap/snap.js'
+            : 'https://app.sandbox.midtrans.com/snap/snap.js'
+          script.setAttribute('data-client-key', clientKey)
+          script.async = true
+          script.onload = () => resolve(window.snap)
+          script.onerror = () => reject(new Error('Gagal memuat Snap Midtrans'))
+          document.head.appendChild(script)
+        })
+
+        return snapLoadingPromise
       }
 
       fetchStatus()
