@@ -16,13 +16,15 @@ function getMidtransConfig() {
     import.meta.env.MIDTRANS_CLIENT_KEY ||
     process.env.PUBLIC_MIDTRANS_CLIENT_KEY ||
     process.env.MIDTRANS_CLIENT_KEY
-  const isProduction = String(
+  const rawMode =
     import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION ||
     import.meta.env.MIDTRANS_IS_PRODUCTION ||
     process.env.PUBLIC_MIDTRANS_IS_PRODUCTION ||
-    process.env.MIDTRANS_IS_PRODUCTION ||
-    'false'
-  ) === 'true'
+    process.env.MIDTRANS_IS_PRODUCTION
+  const isProduction =
+    rawMode !== undefined
+      ? String(rawMode) === 'true'
+      : !String(serverKey || clientKey || '').startsWith('SB-')
 
   return { serverKey, clientKey, isProduction }
 }
