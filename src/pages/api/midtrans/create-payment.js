@@ -11,8 +11,18 @@ function json(data, status = 200) {
 
 function getMidtransConfig() {
   const serverKey = import.meta.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY
-  const clientKey = import.meta.env.MIDTRANS_CLIENT_KEY || process.env.MIDTRANS_CLIENT_KEY
-  const isProduction = String(import.meta.env.MIDTRANS_IS_PRODUCTION || process.env.MIDTRANS_IS_PRODUCTION || 'false') === 'true'
+  const clientKey =
+    import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY ||
+    import.meta.env.MIDTRANS_CLIENT_KEY ||
+    process.env.PUBLIC_MIDTRANS_CLIENT_KEY ||
+    process.env.MIDTRANS_CLIENT_KEY
+  const isProduction = String(
+    import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION ||
+    import.meta.env.MIDTRANS_IS_PRODUCTION ||
+    process.env.PUBLIC_MIDTRANS_IS_PRODUCTION ||
+    process.env.MIDTRANS_IS_PRODUCTION ||
+    'false'
+  ) === 'true'
 
   return { serverKey, clientKey, isProduction }
 }
@@ -25,7 +35,7 @@ export async function POST({ request }) {
       return json({ error: 'MIDTRANS_SERVER_KEY belum diset di Vercel' }, 500)
     }
     if (!clientKey) {
-      return json({ error: 'MIDTRANS_CLIENT_KEY belum diset di Vercel' }, 500)
+      return json({ error: 'PUBLIC_MIDTRANS_CLIENT_KEY belum diset di Vercel' }, 500)
     }
 
     const body = await request.json()
@@ -146,6 +156,10 @@ export async function POST({ request }) {
       },
     })
 
+    if (!transaction?.token) {
+      throw new Error('Midtrans tidak mengembalikan snap token. Cek key dan mode sandbox/production.')
+    }
+
     await supabaseAdmin.from('pembayaran').insert({
       id_pesanan: pesanan.id,
       metode: 'midtrans',
@@ -172,6 +186,11 @@ export async function POST({ request }) {
       redirectUrl: transaction.redirect_url || null,
     })
   } catch (error) {
+    if (String(error?.message || '').includes('unauthorized transaction')) {
+      return json({
+        error: 'Midtrans menolak transaksi. Pastikan server key dan client key cocok, serta sandbox/production sesuai.',
+      }, 502)
+    }
     console.error('create-payment error', error)
     return json({ error: error.message || 'Checkout gagal' }, 500)
   }

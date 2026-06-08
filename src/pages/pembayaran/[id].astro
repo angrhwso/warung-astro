@@ -2,8 +2,19 @@
 import Layout from '../../layouts/Layout.astro'
 import ConfettiEffect from '../../components/ConfettiEffect.jsx'
 const { id } = Astro.params
-const midtransClientKey = import.meta.env.MIDTRANS_CLIENT_KEY || ''
-const midtransIsProduction = String(import.meta.env.MIDTRANS_IS_PRODUCTION || 'false') === 'true'
+const midtransClientKey =
+  import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY ||
+  import.meta.env.MIDTRANS_CLIENT_KEY ||
+  process.env.PUBLIC_MIDTRANS_CLIENT_KEY ||
+  process.env.MIDTRANS_CLIENT_KEY ||
+  ''
+const midtransIsProduction = String(
+  import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION ||
+  import.meta.env.MIDTRANS_IS_PRODUCTION ||
+  process.env.PUBLIC_MIDTRANS_IS_PRODUCTION ||
+  process.env.MIDTRANS_IS_PRODUCTION ||
+  'false'
+) === 'true'
 ---
 
 <Layout>
