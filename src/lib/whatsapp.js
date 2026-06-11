@@ -23,8 +23,9 @@ export async function sendAdminWhatsappNotification({ orderId, total, items = []
   }
 
   const message = formatAdminOrderMessage({ orderId, total, items })
-  const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(adminNumber)}&text=${encodeURIComponent(message)}&apikey=${encodeURIComponent(apiKey)}`
-  const response = await fetch(url)
+  const response = await fetch(
+    `https://api.callmebot.com/whatsapp.php?phone=${adminNumber}&text=${encodeURIComponent(message)}&apikey=${apiKey}`
+  )
   const body = await response.text()
 
   return {

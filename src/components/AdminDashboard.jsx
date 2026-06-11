@@ -33,7 +33,7 @@ export default function AdminDashboard() {
 
   async function load() {
     const [{ data: orderData }, { data: stockData }] = await Promise.all([
-      supabase.from('pesanan').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('pesanan').select('*').order('created_at', { ascending: false }),
       supabase.from('menu').select('*').lte('stok', 5).order('stok'),
     ])
     setOrders(orderData || [])
@@ -49,19 +49,20 @@ export default function AdminDashboard() {
 
     const channel = supabase
       .channel('admin-dashboard-pesanan')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pesanan' }, (payload) => {
-        load()
-        if (payload.eventType === 'INSERT') {
-          setNewOrders((count) => count + 1)
-          try {
-            const context = new AudioContext()
-            const oscillator = context.createOscillator()
-            oscillator.frequency.value = 880
-            oscillator.connect(context.destination)
-            oscillator.start()
-            oscillator.stop(context.currentTime + 0.12)
-          } catch {}
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pesanan' }, (payload) => {
+        if (payload.new) {
+          setOrders((prev) => [payload.new, ...prev])
         }
+        load()
+        setNewOrders((count) => count + 1)
+        try {
+          const context = new AudioContext()
+          const oscillator = context.createOscillator()
+          oscillator.frequency.value = 880
+          oscillator.connect(context.destination)
+          oscillator.start()
+          oscillator.stop(context.currentTime + 0.12)
+        } catch {}
       })
       .subscribe()
 
