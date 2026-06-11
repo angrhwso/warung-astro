@@ -47,26 +47,32 @@ export default function AdminDashboard() {
 
     fetchPesanan()
 
+    const poll = setInterval(() => {
+      fetchPesanan()
+    }, 5000)
+
     const channel = supabase
       .channel('pesanan')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pesanan' }, (payload) => {
-        if (payload.new) {
-          setOrders((prev) => [payload.new, ...prev])
-        }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pesanan' }, (payload) => {
         fetchPesanan()
-        setNewOrders((count) => count + 1)
-        try {
-          const context = new AudioContext()
-          const oscillator = context.createOscillator()
-          oscillator.frequency.value = 880
-          oscillator.connect(context.destination)
-          oscillator.start()
-          oscillator.stop(context.currentTime + 0.12)
-        } catch {}
+        if (payload.eventType === 'INSERT') {
+          setNewOrders((count) => count + 1)
+          try {
+            const context = new AudioContext()
+            const oscillator = context.createOscillator()
+            oscillator.frequency.value = 880
+            oscillator.connect(context.destination)
+            oscillator.start()
+            oscillator.stop(context.currentTime + 0.12)
+          } catch {}
+        }
       })
       .subscribe()
 
-    return () => supabase.removeChannel(channel)
+    return () => {
+      clearInterval(poll)
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   const toggleTestingMode = () => {
