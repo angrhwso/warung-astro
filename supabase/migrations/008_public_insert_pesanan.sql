@@ -3,8 +3,8 @@
 
 ALTER TABLE pesanan ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Public insert" ON pesanan;
-CREATE POLICY "Public insert" ON pesanan
+DROP POLICY IF EXISTS "Public insert pesanan" ON pesanan;
+CREATE POLICY "Public insert pesanan" ON pesanan
   FOR INSERT
   TO anon
   WITH CHECK (true);

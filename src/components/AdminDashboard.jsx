@@ -31,7 +31,7 @@ export default function AdminDashboard() {
     }
   }, [lowStock.length, orders, today])
 
-  async function load() {
+  async function fetchPesanan() {
     const [{ data: orderData }, { data: stockData }] = await Promise.all([
       supabase.from('pesanan').select('*').order('created_at', { ascending: false }),
       supabase.from('menu').select('*').lte('stok', 5).order('stok'),
@@ -45,15 +45,15 @@ export default function AdminDashboard() {
       setTestingMode(localStorage.getItem('warung-midtrans-testing') === '1')
     } catch {}
 
-    load()
+    fetchPesanan()
 
     const channel = supabase
-      .channel('admin-dashboard-pesanan')
+      .channel('pesanan')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pesanan' }, (payload) => {
         if (payload.new) {
           setOrders((prev) => [payload.new, ...prev])
         }
-        load()
+        fetchPesanan()
         setNewOrders((count) => count + 1)
         try {
           const context = new AudioContext()
