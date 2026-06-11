@@ -37,7 +37,11 @@ export async function GET({ url }) {
     const [{ data: pembayaran }, { data: pesanan }] = supabaseAdmin
       ? await Promise.all([
           supabaseAdmin.from('pembayaran').select('*').eq('id_pesanan', Number(id)).maybeSingle(),
-          supabaseAdmin.from('pesanan').select('*').eq('id', Number(id)).maybeSingle(),
+          supabaseAdmin
+            .from('pesanan')
+            .select('*, meja(nomor_meja), detail_pesanan(*, menu(nama))')
+            .eq('id', Number(id))
+            .maybeSingle(),
         ])
       : [{ data: null }, { data: null }]
 

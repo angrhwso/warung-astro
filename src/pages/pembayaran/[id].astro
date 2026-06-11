@@ -31,12 +31,82 @@ const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
       data-testing={Astro.url.searchParams.get('testing') === '1' ? 'true' : 'false'}
       data-whatsapp-cs={whatsappCs}
     >
-      <h1>Pembayaran Pesanan #{id}</h1>
+      <div class="payment-header">
+        <div>
+          <p class="eyebrow">Pembayaran</p>
+          <h1>🍜 Selesaikan Pembayaran</h1>
+        </div>
+        <span class="payment-badge">No. Antrian: <strong id="orderBadge">{id}</strong></span>
+      </div>
+
       <p id="status" class="payment-waiting">Menunggu pembayaran...</p>
       <p class="empty-cart">Selesaikan pembayaran dalam <strong id="timer">15:00</strong>.</p>
-      <div id="qr"></div>
-      <div class="action-row" id="actions"></div>
-      <div id="timeoutAction"></div>
+
+      <section class="payment-content">
+        <div class="payment-main">
+          <article class="payment-panel" id="orderInfo">
+            <h2>Informasi Pesanan</h2>
+            <div class="payment-summary-grid" id="summaryGrid"></div>
+          </article>
+
+          <article class="payment-panel">
+            <div class="flex items-center justify-between gap-3">
+              <h2 class="m-0">Detail Menu</h2>
+              <span class="status-badge status-pending" id="methodHighlight">Memuat metode...</span>
+            </div>
+            <div class="payment-table-wrap">
+              <table class="payment-table">
+                <thead>
+                  <tr>
+                    <th>Menu</th>
+                    <th>Jumlah</th>
+                    <th>Harga</th>
+                  </tr>
+                </thead>
+                <tbody id="itemsTable">
+                  <tr>
+                    <td colspan="3" class="payment-empty">Memuat detail pesanan...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="payment-total-grid">
+              <div>
+                <span>Subtotal</span>
+                <strong id="subtotalValue">-</strong>
+              </div>
+              <div>
+                <span>Total</span>
+                <strong id="totalValue">-</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="payment-panel">
+            <h2>Metode Pembayaran</h2>
+            <div class="payment-method-grid" id="methodGrid"></div>
+          </article>
+
+          <article class="payment-panel">
+            <h2>Instruksi Pembayaran</h2>
+            <ol class="payment-steps" id="paymentSteps"></ol>
+          </article>
+        </div>
+
+        <aside class="payment-side">
+          <article class="payment-panel qr-panel">
+            <h2>Scan / Bayar</h2>
+            <div id="qr" class="payment-qr-slot"></div>
+            <div class="action-row" id="actions"></div>
+          </article>
+
+          <article class="payment-panel">
+            <h2>Catatan</h2>
+            <p class="empty-cart" id="orderNote">Pesanan Anda sedang diproses.</p>
+            <div id="timeoutAction"></div>
+          </article>
+        </aside>
+      </section>
     </section>
   </main>
   <ConfettiEffect client:load />
@@ -56,6 +126,145 @@ const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
       const statusEl = document.getElementById('status')
       const qrEl = document.getElementById('qr')
       const timeoutAction = document.getElementById('timeoutAction')
+      const summaryGrid = document.getElementById('summaryGrid')
+      const itemsTable = document.getElementById('itemsTable')
+      const subtotalValue = document.getElementById('subtotalValue')
+      const totalValue = document.getElementById('totalValue')
+      const methodGrid = document.getElementById('methodGrid')
+      const paymentSteps = document.getElementById('paymentSteps')
+      const methodHighlight = document.getElementById('methodHighlight')
+      const orderNote = document.getElementById('orderNote')
+
+      const money = new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+      })
+
+      const methodMap = {
+        bank_transfer: {
+          icon: '🏦',
+          title: 'Bank Transfer',
+          desc: 'Transfer Bank BCA / BNI / BRI / Mandiri',
+          steps: ['Pilih salah satu bank transfer yang tersedia.', 'Ikuti instruksi pembayaran yang muncul.', 'Simpan bukti transfer jika dibutuhkan.'],
+        },
+        qris: {
+          icon: '📱',
+          title: 'QRIS',
+          desc: 'Scan QR Code dengan GoPay, OVO, Dana, dll',
+          steps: ['Klik tombol pembayaran Midtrans.', 'Scan QR code dari aplikasi e-wallet.', 'Tunggu status pembayaran terkonfirmasi.'],
+        },
+        gopay: {
+          icon: '💳',
+          title: 'GoPay',
+          desc: 'Bayar dengan GoPay',
+          steps: ['Buka notifikasi GoPay setelah pembayaran dibuat.', 'Konfirmasi pembayaran di aplikasi.', 'Selesaikan sebelum timer habis.'],
+        },
+        shopeepay: {
+          icon: '🛍️',
+          title: 'ShopeePay',
+          desc: 'Bayar dengan ShopeePay',
+          steps: ['Buka aplikasi Shopee.', 'Konfirmasi pembayaran ShopeePay.', 'Pastikan saldo mencukupi.'],
+        },
+      }
+
+      function formatDateTime(value) {
+        if (!value) return '-'
+        const date = new Date(value)
+        return new Intl.DateTimeFormat('id-ID', {
+          weekday: 'long',
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).format(date)
+      }
+
+      function setPaymentMethodHighlight(method = 'midtrans') {
+        const mapped = methodMap[method] || {
+          icon: '🧾',
+          title: 'Midtrans',
+          desc: 'Metode pembayaran tersedia melalui Midtrans Snap',
+          steps: ['Klik tombol pembayaran.', 'Ikuti instruksi pada halaman Midtrans.', 'Tunggu status berubah otomatis.'],
+        }
+
+        methodHighlight.innerText = `${mapped.icon} ${mapped.title}`
+        paymentSteps.innerHTML = mapped.steps.map((step) => `<li>${step}</li>`).join('')
+        methodGrid.innerHTML = [
+          'bank_transfer',
+          'qris',
+          'gopay',
+          'shopeepay',
+        ].map((key) => {
+          const item = methodMap[key]
+          const active = key === method
+          return `
+            <article class="payment-method-card ${active ? 'active' : ''}">
+              <div class="payment-method-icon">${item.icon}</div>
+              <div>
+                <strong>${item.title}</strong>
+                <p>${item.desc}</p>
+              </div>
+            </article>
+          `
+        }).join('')
+      }
+
+      function renderSummary(data) {
+        const pesanan = data?.pesanan
+        const pembayaran = data?.pembayaran
+        if (!pesanan) {
+          summaryGrid.innerHTML = '<p class="payment-empty">Belum ada data pesanan.</p>'
+          return
+        }
+
+        const meja = pesanan?.meja?.nomor_meja ? `Meja ${pesanan.meja.nomor_meja}` : 'Tanpa meja'
+        const typeLabel = pesanan.tipe_pesanan === 'dine_in'
+          ? `Dine-in (${meja})`
+          : pesanan.tipe_pesanan === 'delivery'
+            ? 'Delivery'
+            : 'Takeaway'
+
+        summaryGrid.innerHTML = `
+          <div class="payment-info-item">
+            <span>Tipe Pesanan</span>
+            <strong>${typeLabel}</strong>
+          </div>
+          <div class="payment-info-item">
+            <span>Nama Customer</span>
+            <strong>${pesanan.customer_name || '-'}</strong>
+          </div>
+          <div class="payment-info-item">
+            <span>Waktu Pemesanan</span>
+            <strong>${formatDateTime(pesanan.created_at)}</strong>
+          </div>
+        `
+
+        const items = pesanan.detail_pesanan || []
+        itemsTable.innerHTML = items.length
+          ? items.map((item) => `
+              <tr>
+                <td>${item.menu?.nama || `Menu #${item.id_menu}`}</td>
+                <td>${item.jumlah}</td>
+                <td>${money.format((item.harga_saat_pesan || 0) * item.jumlah)}</td>
+              </tr>
+            `).join('')
+          : '<tr><td colspan="3" class="payment-empty">Detail menu belum tersedia.</td></tr>'
+
+        subtotalValue.innerText = money.format(pesanan.subtotal || 0)
+        totalValue.innerText = money.format(pesanan.total || 0)
+        orderNote.innerText = pesanan.catatan || 'Pesanan Anda sedang diproses.'
+
+        const paymentMethod = pembayaran?.metode || 'midtrans'
+        if (paymentMethod === 'midtrans') {
+          setPaymentMethodHighlight('qris')
+        } else if (paymentMethod === 'tunai') {
+          setPaymentMethodHighlight('bank_transfer')
+        } else {
+          setPaymentMethodHighlight(paymentMethod)
+        }
+      }
 
       function tickTimer() {
         if (timedOut) return
@@ -144,6 +353,7 @@ const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
         try {
           const res = await fetch(`/api/cek-status?id=${id}`)
           const data = await res.json()
+          renderSummary(data)
 
           if (res.status === 404 || data.not_found) {
             retryCount404 += 1

@@ -599,6 +599,142 @@
     background: rgba(42, 157, 143, .06);
     color: var(--secondary);
   }
+
+  .payment-header {
+    @apply mb-6 flex flex-wrap items-center justify-between gap-4;
+  }
+
+  .payment-header h1 {
+    @apply m-0 text-3xl font-black sm:text-4xl;
+  }
+
+  .payment-badge {
+    @apply inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-black;
+    border-color: rgba(231, 111, 81, .2);
+    background: rgba(231, 111, 81, .08);
+    color: var(--primary);
+  }
+
+  .payment-content {
+    @apply grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px];
+  }
+
+  .payment-main,
+  .payment-side {
+    @apply grid gap-5;
+  }
+
+  .payment-panel {
+    @apply rounded-[2rem] border p-5 shadow-soft;
+    background: var(--paper);
+    border-color: var(--line);
+  }
+
+  .payment-panel h2 {
+    @apply mb-4 text-xl font-black;
+  }
+
+  .payment-summary-grid {
+    @apply grid gap-3 sm:grid-cols-3;
+  }
+
+  .payment-info-item {
+    @apply rounded-2xl border p-4;
+    border-color: var(--line);
+    background: color-mix(in srgb, var(--paper) 86%, white);
+  }
+
+  .payment-info-item span,
+  .payment-total-grid span {
+    @apply block text-xs font-black uppercase tracking-[.12em];
+    color: var(--muted);
+  }
+
+  .payment-info-item strong,
+  .payment-total-grid strong {
+    @apply mt-1 block text-base font-black;
+    color: var(--text);
+  }
+
+  .payment-table-wrap {
+    @apply overflow-x-auto rounded-2xl border;
+    border-color: var(--line);
+  }
+
+  .payment-table {
+    @apply w-full min-w-[520px];
+  }
+
+  .payment-table th,
+  .payment-table td {
+    @apply text-sm;
+    padding: .9rem .85rem;
+  }
+
+  .payment-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .payment-total-grid {
+    @apply mt-4 grid gap-3 rounded-2xl border p-4 sm:grid-cols-2;
+    border-color: var(--line);
+    background: rgba(42, 157, 143, .06);
+  }
+
+  .payment-method-grid {
+    @apply grid gap-3 sm:grid-cols-2;
+  }
+
+  .payment-method-card {
+    @apply grid grid-cols-[40px_1fr] gap-3 rounded-2xl border p-4;
+    border-color: var(--line);
+    background: color-mix(in srgb, var(--paper) 88%, white);
+  }
+
+  .payment-method-card.active {
+    border-color: rgba(42, 157, 143, .45);
+    background: rgba(42, 157, 143, .08);
+    box-shadow: 0 14px 28px rgba(42, 157, 143, .12);
+  }
+
+  .payment-method-icon {
+    @apply grid h-10 w-10 place-items-center rounded-2xl text-lg;
+    background: rgba(231, 111, 81, .12);
+  }
+
+  .payment-method-card strong {
+    @apply block text-sm font-black;
+  }
+
+  .payment-method-card p {
+    @apply m-0 text-sm leading-relaxed;
+    color: var(--muted);
+  }
+
+  .payment-steps {
+    @apply grid gap-2 pl-5 text-sm leading-relaxed;
+    color: var(--text);
+  }
+
+  .payment-steps li {
+    @apply pl-1;
+  }
+
+  .payment-qr-slot {
+    @apply grid min-h-[240px] place-items-center rounded-[2rem] border-2 border-dashed p-5;
+    border-color: rgba(42, 157, 143, .35);
+    background: rgba(42, 157, 143, .05);
+  }
+
+  .payment-empty {
+    @apply py-8 text-center text-sm font-semibold;
+    color: var(--muted);
+  }
+
+  .qr-panel {
+    position: sticky;
+    top: 6rem;
+  }
 }
 
 @layer utilities {
