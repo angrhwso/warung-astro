@@ -1,58 +1,81 @@
 ---
 import Layout from '../../layouts/Layout.astro'
 import ConfettiEffect from '../../components/ConfettiEffect.jsx'
-const { id } = Astro.params
-const midtransClientKey =
-  import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY ||
-  import.meta.env.MIDTRANS_CLIENT_KEY ||
-  process.env.PUBLIC_MIDTRANS_CLIENT_KEY ||
-  process.env.MIDTRANS_CLIENT_KEY ||
-  ''
-const midtransModeEnv =
-  import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION ||
-  import.meta.env.MIDTRANS_IS_PRODUCTION ||
-  process.env.PUBLIC_MIDTRANS_IS_PRODUCTION ||
-  process.env.MIDTRANS_IS_PRODUCTION
-const midtransIsProduction =
-  midtransModeEnv !== undefined
-    ? String(midtransModeEnv) === 'true'
-    : !String(midtransClientKey || '').startsWith('SB-')
+
+const id = Astro.params.id
 const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
+const testing = Astro.url.searchParams.get('testing') === '1'
 ---
 
-<Layout>
-  <main class="payment-shell">
+<Layout title={`Pembayaran Pesanan #${id}`}>
+  <main class="payment-page-shell">
     <section
-      class="payment-card"
-      id="app"
-      data-id={id}
-      data-client-key={midtransClientKey}
-      data-is-production={midtransIsProduction ? 'true' : 'false'}
-      data-testing={Astro.url.searchParams.get('testing') === '1' ? 'true' : 'false'}
+      class="payment-page"
+      data-order-id={id}
+      data-testing={testing ? 'true' : 'false'}
       data-whatsapp-cs={whatsappCs}
     >
-      <div class="payment-header">
+      <header class="payment-hero">
         <div>
-          <p class="eyebrow">Pembayaran</p>
+          <p class="payment-eyebrow">Pembayaran</p>
           <h1>🍜 Selesaikan Pembayaran</h1>
+          <p class="payment-subtitle">Silakan selesaikan pesanan Anda sebelum timer habis.</p>
         </div>
-        <span class="payment-badge">No. Antrian: <strong id="orderBadge">{id}</strong></span>
+        <div class="payment-badges">
+          <span class="payment-badge payment-badge-muted">No. Pesanan: <strong id="orderNumber">#{id}</strong></span>
+          <span class="payment-badge payment-badge-warning" id="statusBadge">Menunggu pembayaran</span>
+        </div>
+      </header>
+
+      <div class="payment-announcement" role="note" aria-label="Informasi pembayaran">
+        <span class="payment-announcement-icon">ℹ️</span>
+        <p>
+          Saat ini kami menyarankan pembayaran lewat QRIS untuk proses yang lebih cepat. Metode lain tetap tersedia melalui Midtrans,
+          tetapi tampilan utama difokuskan ke QR code agar lebih mudah dipindai.
+        </p>
       </div>
 
-      <p id="status" class="payment-waiting">Menunggu pembayaran...</p>
-      <p class="empty-cart">Selesaikan pembayaran dalam <strong id="timer">15:00</strong>.</p>
-
-      <section class="payment-content">
-        <div class="payment-main">
-          <article class="payment-panel" id="orderInfo">
-            <h2>Informasi Pesanan</h2>
-            <div class="payment-summary-grid" id="summaryGrid"></div>
+      <section class="payment-grid">
+        <div class="payment-column">
+          <article class="payment-card payment-card-timer">
+            <p class="payment-card-label">Batas Waktu Pembayaran</p>
+            <div class="payment-countdown" id="countdown">15:00</div>
+            <p class="payment-helper" id="timerHelper">Waktu tersisa untuk menyelesaikan pembayaran.</p>
           </article>
 
-          <article class="payment-panel">
-            <div class="flex items-center justify-between gap-3">
-              <h2 class="m-0">Detail Menu</h2>
-              <span class="status-badge status-pending" id="methodHighlight">Memuat metode...</span>
+          <article class="payment-card">
+            <div class="payment-card-header">
+              <h2>Informasi Pesanan</h2>
+              <span class="payment-mini-badge" id="paymentMethodTag">QRIS / Midtrans</span>
+            </div>
+            <div class="payment-info-grid" id="orderInfoGrid">
+              <div class="payment-info-item">
+                <span>Nomor Pesanan</span>
+                <strong id="infoOrderNumber">-</strong>
+              </div>
+              <div class="payment-info-item">
+                <span>Total Bayar</span>
+                <strong id="infoTotal">-</strong>
+              </div>
+              <div class="payment-info-item">
+                <span>Status</span>
+                <strong id="infoStatus">Menunggu pembayaran</strong>
+              </div>
+              <div class="payment-info-item">
+                <span>Waktu Pesanan</span>
+                <strong id="infoTime">-</strong>
+              </div>
+            </div>
+            <div class="payment-order-meta" id="orderMeta">
+              <p><strong>Tipe Pesanan:</strong> <span id="infoType">-</span></p>
+              <p><strong>Nama Customer:</strong> <span id="infoCustomer">-</span></p>
+            </div>
+          </article>
+
+          <article class="payment-card">
+            <div class="payment-card-header">
+              <h2>Detail Menu</h2>
+              <span class="payment-mini-note">Ringkasan pesanan</span>
             </div>
             <div class="payment-table-wrap">
               <table class="payment-table">
@@ -63,14 +86,14 @@ const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
                     <th>Harga</th>
                   </tr>
                 </thead>
-                <tbody id="itemsTable">
+                <tbody id="menuTable">
                   <tr>
-                    <td colspan="3" class="payment-empty">Memuat detail pesanan...</td>
+                    <td colspan="3" class="payment-empty-cell">Memuat detail menu...</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div class="payment-total-grid">
+            <div class="payment-totals">
               <div>
                 <span>Subtotal</span>
                 <strong id="subtotalValue">-</strong>
@@ -82,343 +105,1024 @@ const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
             </div>
           </article>
 
-          <article class="payment-panel">
-            <h2>Metode Pembayaran</h2>
+          <article class="payment-card">
+            <div class="payment-card-header">
+              <h2>Metode Pembayaran</h2>
+              <span class="payment-mini-note">Highlight metode aktif</span>
+            </div>
             <div class="payment-method-grid" id="methodGrid"></div>
           </article>
 
-          <article class="payment-panel">
-            <h2>Instruksi Pembayaran</h2>
+          <article class="payment-card">
+            <div class="payment-card-header">
+              <h2>Instruksi Pembayaran</h2>
+              <span class="payment-mini-note">Ikuti langkah berikut</span>
+            </div>
             <ol class="payment-steps" id="paymentSteps"></ol>
+          </article>
+
+          <article class="payment-card">
+            <div class="payment-card-header">
+              <h2>Tombol Aksi</h2>
+              <span class="payment-mini-note">Cepat dan praktis</span>
+            </div>
+            <div class="payment-actions">
+              <a class="payment-button payment-button-primary" id="whatsappButton" href="#" target="_blank" rel="noreferrer">💬 Hubungi Kasir</a>
+              <button class="payment-button payment-button-secondary" id="refreshButton" type="button">🔄 Cek Status Pembayaran</button>
+            </div>
           </article>
         </div>
 
-        <aside class="payment-side">
-          <article class="payment-panel qr-panel">
-            <h2>Scan / Bayar</h2>
-            <div id="qr" class="payment-qr-slot"></div>
-            <div class="action-row" id="actions"></div>
+        <aside class="payment-column payment-side">
+          <article class="payment-card payment-qr-card">
+            <div class="payment-card-header payment-card-header-center">
+              <h2>QR Code Pembayaran</h2>
+            </div>
+            <div class="payment-qr-timer" id="sideTimer">15:00</div>
+            <div class="payment-qr-shell">
+              <div class="payment-qr-stage" id="qrStage">
+                <p class="payment-empty-state">Memuat QR code...</p>
+              </div>
+            </div>
+            <p class="payment-qr-caption">
+              Scan QR code di atas menggunakan GoPay, OVO, Dana, atau aplikasi QRIS lainnya.
+            </p>
+            <div class="payment-qr-actions" id="qrActions"></div>
           </article>
 
-          <article class="payment-panel">
-            <h2>Catatan</h2>
-            <p class="empty-cart" id="orderNote">Pesanan Anda sedang diproses.</p>
-            <div id="timeoutAction"></div>
+          <article class="payment-card">
+            <div class="payment-card-header">
+              <h2>Announcement</h2>
+            </div>
+            <div class="payment-announcement payment-announcement-block">
+              <span class="payment-announcement-icon">ℹ️</span>
+              <p>
+                Metode pembayaran lain tetap aktif di Midtrans, tetapi jika QR belum muncul, tunggu beberapa detik lalu klik
+                <strong>Cek Status Pembayaran</strong>.
+              </p>
+            </div>
+          </article>
+
+          <article class="payment-card">
+            <div class="payment-card-header">
+              <h2>Catatan</h2>
+            </div>
+            <p class="payment-helper" id="noteText">Pesanan Anda sedang menunggu pembayaran.</p>
+            <div id="timeoutArea"></div>
           </article>
         </aside>
       </section>
     </section>
+
+    <ConfettiEffect client:load />
   </main>
-  <ConfettiEffect client:load />
 
-  <script type="module">
-      const id = document.getElementById('app').dataset.id
-      const clientKey = document.getElementById('app').dataset.clientKey || ''
-      const isProduction = document.getElementById('app').dataset.isProduction === 'true'
-      const testingMode = document.getElementById('app').dataset.testing === 'true'
-      const whatsappCs = document.getElementById('app').dataset.whatsappCs || ''
-      let poll = null
-      let remaining = 15 * 60
-      let retryCount404 = 0
-      let timedOut = false
-      const timerEl = document.getElementById('timer')
-      let snapLoadingPromise = null
-      const statusEl = document.getElementById('status')
-      const qrEl = document.getElementById('qr')
-      const timeoutAction = document.getElementById('timeoutAction')
-      const summaryGrid = document.getElementById('summaryGrid')
-      const itemsTable = document.getElementById('itemsTable')
-      const subtotalValue = document.getElementById('subtotalValue')
-      const totalValue = document.getElementById('totalValue')
-      const methodGrid = document.getElementById('methodGrid')
-      const paymentSteps = document.getElementById('paymentSteps')
-      const methodHighlight = document.getElementById('methodHighlight')
-      const orderNote = document.getElementById('orderNote')
+  <script is:inline type="module">
+    const ORDER_ID = ${JSON.stringify(id)}
+    const TESTING = ${JSON.stringify(testing)}
+    const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
 
-      const money = new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        maximumFractionDigits: 0,
-      })
+    const money = new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    })
 
-      const methodMap = {
-        bank_transfer: {
-          icon: '🏦',
-          title: 'Bank Transfer',
-          desc: 'Transfer Bank BCA / BNI / BRI / Mandiri',
-          steps: ['Pilih salah satu bank transfer yang tersedia.', 'Ikuti instruksi pembayaran yang muncul.', 'Simpan bukti transfer jika dibutuhkan.'],
-        },
-        qris: {
-          icon: '📱',
-          title: 'QRIS',
-          desc: 'Scan QR Code dengan GoPay, OVO, Dana, dll',
-          steps: ['Klik tombol pembayaran Midtrans.', 'Scan QR code dari aplikasi e-wallet.', 'Tunggu status pembayaran terkonfirmasi.'],
-        },
-        gopay: {
-          icon: '💳',
-          title: 'GoPay',
-          desc: 'Bayar dengan GoPay',
-          steps: ['Buka notifikasi GoPay setelah pembayaran dibuat.', 'Konfirmasi pembayaran di aplikasi.', 'Selesaikan sebelum timer habis.'],
-        },
-        shopeepay: {
-          icon: '🛍️',
-          title: 'ShopeePay',
-          desc: 'Bayar dengan ShopeePay',
-          steps: ['Buka aplikasi Shopee.', 'Konfirmasi pembayaran ShopeePay.', 'Pastikan saldo mencukupi.'],
-        },
-      }
+    const countdownEl = document.getElementById('countdown')
+    const sideTimerEl = document.getElementById('sideTimer')
+    const timerHelperEl = document.getElementById('timerHelper')
+    const statusBadgeEl = document.getElementById('statusBadge')
+    const paymentMethodTagEl = document.getElementById('paymentMethodTag')
+    const infoOrderNumberEl = document.getElementById('infoOrderNumber')
+    const infoTotalEl = document.getElementById('infoTotal')
+    const infoStatusEl = document.getElementById('infoStatus')
+    const infoTimeEl = document.getElementById('infoTime')
+    const infoTypeEl = document.getElementById('infoType')
+    const infoCustomerEl = document.getElementById('infoCustomer')
+    const menuTableEl = document.getElementById('menuTable')
+    const subtotalValueEl = document.getElementById('subtotalValue')
+    const totalValueEl = document.getElementById('totalValue')
+    const methodGridEl = document.getElementById('methodGrid')
+    const paymentStepsEl = document.getElementById('paymentSteps')
+    const qrStageEl = document.getElementById('qrStage')
+    const qrActionsEl = document.getElementById('qrActions')
+    const noteTextEl = document.getElementById('noteText')
+    const timeoutAreaEl = document.getElementById('timeoutArea')
+    const whatsappButtonEl = document.getElementById('whatsappButton')
+    const refreshButtonEl = document.getElementById('refreshButton')
 
-      function formatDateTime(value) {
-        if (!value) return '-'
-        const date = new Date(value)
-        return new Intl.DateTimeFormat('id-ID', {
-          weekday: 'long',
-          day: '2-digit',
-          month: 'long',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }).format(date)
-      }
+    const paymentMethods = [
+      {
+        key: 'qris',
+        icon: '📱',
+        title: 'QRIS',
+        desc: 'Scan QR Code dengan GoPay, OVO, Dana, dll',
+        steps: [
+          'Tunggu QR code tampil sempurna di halaman ini.',
+          'Buka aplikasi pembayaran Anda dan pilih menu QRIS.',
+          'Scan QR code, lalu konfirmasi nominal pembayaran.',
+        ],
+      },
+      {
+        key: 'gopay',
+        icon: '💳',
+        title: 'GoPay',
+        desc: 'Bayar dengan GoPay',
+        steps: [
+          'Buka aplikasi GoPay pada ponsel Anda.',
+          'Ikuti instruksi pembayaran yang muncul dari Midtrans.',
+          'Selesaikan pembayaran sebelum waktu habis.',
+        ],
+      },
+      {
+        key: 'shopeepay',
+        icon: '🛍️',
+        title: 'ShopeePay',
+        desc: 'Bayar dengan ShopeePay',
+        steps: [
+          'Buka aplikasi Shopee dan masuk ke ShopeePay.',
+          'Pilih bayar pada notifikasi atau kode pembayaran.',
+          'Pastikan saldo cukup lalu konfirmasi transaksi.',
+        ],
+      },
+      {
+        key: 'bank_transfer',
+        icon: '🏦',
+        title: 'Bank Transfer',
+        desc: 'Transfer Bank BCA / BNI / BRI / Mandiri',
+        steps: [
+          'Gunakan instruksi transfer bank yang tersedia di Midtrans.',
+          'Salin nomor virtual account atau rekening tujuan.',
+          'Lakukan transfer sesuai nominal pesanan.',
+        ],
+      },
+    ]
 
-      function setPaymentMethodHighlight(method = 'midtrans') {
-        const mapped = methodMap[method] || {
-          icon: '🧾',
-          title: 'Midtrans',
-          desc: 'Metode pembayaran tersedia melalui Midtrans Snap',
-          steps: ['Klik tombol pembayaran.', 'Ikuti instruksi pada halaman Midtrans.', 'Tunggu status berubah otomatis.'],
-        }
+    const state = {
+      deadline: Date.now() + 15 * 60 * 1000,
+      timerId: null,
+      pollId: null,
+      timedOut: false,
+      qrLoaded: false,
+      lastStatus: null,
+      loadCount: 0,
+    }
 
-        methodHighlight.innerText = `${mapped.icon} ${mapped.title}`
-        paymentSteps.innerHTML = mapped.steps.map((step) => `<li>${step}</li>`).join('')
-        methodGrid.innerHTML = [
-          'bank_transfer',
-          'qris',
-          'gopay',
-          'shopeepay',
-        ].map((key) => {
-          const item = methodMap[key]
-          const active = key === method
-          return `
-            <article class="payment-method-card ${active ? 'active' : ''}">
-              <div class="payment-method-icon">${item.icon}</div>
-              <div>
-                <strong>${item.title}</strong>
-                <p>${item.desc}</p>
-              </div>
-            </article>
-          `
-        }).join('')
-      }
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;')
+    }
 
-      function renderSummary(data) {
-        const pesanan = data?.pesanan
-        const pembayaran = data?.pembayaran
-        if (!pesanan) {
-          summaryGrid.innerHTML = '<p class="payment-empty">Belum ada data pesanan.</p>'
-          return
-        }
+    function formatDateTime(value) {
+      if (!value) return '-'
+      const date = new Date(value)
+      return new Intl.DateTimeFormat('id-ID', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date)
+    }
 
-        const meja = pesanan?.meja?.nomor_meja ? `Meja ${pesanan.meja.nomor_meja}` : 'Tanpa meja'
-        const typeLabel = pesanan.tipe_pesanan === 'dine_in'
-          ? `Dine-in (${meja})`
-          : pesanan.tipe_pesanan === 'delivery'
-            ? 'Delivery'
-            : 'Takeaway'
+    function formatCountdown(ms) {
+      const safe = Math.max(0, ms)
+      const totalSeconds = Math.floor(safe / 1000)
+      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
+      const seconds = String(totalSeconds % 60).padStart(2, '0')
+      return `${minutes}:${seconds}`
+    }
 
-        summaryGrid.innerHTML = `
-          <div class="payment-info-item">
-            <span>Tipe Pesanan</span>
-            <strong>${typeLabel}</strong>
-          </div>
-          <div class="payment-info-item">
-            <span>Nama Customer</span>
-            <strong>${pesanan.customer_name || '-'}</strong>
-          </div>
-          <div class="payment-info-item">
-            <span>Waktu Pemesanan</span>
-            <strong>${formatDateTime(pesanan.created_at)}</strong>
-          </div>
+    function normalizePhone(phone) {
+      return String(phone || '').replace(/[^\d]/g, '')
+    }
+
+    function whatsappLink(message) {
+      const phone = normalizePhone(WHATSAPP_CS)
+      if (!phone) return '#'
+      return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+    }
+
+    function setWhatsappButton(orderId) {
+      const message = `Halo Kasir, saya ingin konfirmasi pembayaran untuk pesanan #${orderId}.`
+      whatsappButtonEl.href = whatsappLink(message)
+    }
+
+    function renderMethodGrid(activeMethod = 'qris') {
+      const cards = paymentMethods.map((method) => {
+        const active = method.key === activeMethod
+        return `
+          <article class="method-card ${active ? 'is-active' : ''}">
+            <div class="method-icon">${method.icon}</div>
+            <div>
+              <strong>${escapeHtml(method.title)}</strong>
+              <p>${escapeHtml(method.desc)}</p>
+            </div>
+          </article>
         `
+      }).join('')
 
-        const items = pesanan.detail_pesanan || []
-        itemsTable.innerHTML = items.length
-          ? items.map((item) => `
-              <tr>
-                <td>${item.menu?.nama || `Menu #${item.id_menu}`}</td>
-                <td>${item.jumlah}</td>
-                <td>${money.format((item.harga_saat_pesan || 0) * item.jumlah)}</td>
-              </tr>
-            `).join('')
-          : '<tr><td colspan="3" class="payment-empty">Detail menu belum tersedia.</td></tr>'
+      methodGridEl.innerHTML = cards
+    }
 
-        subtotalValue.innerText = money.format(pesanan.subtotal || 0)
-        totalValue.innerText = money.format(pesanan.total || 0)
-        orderNote.innerText = pesanan.catatan || 'Pesanan Anda sedang diproses.'
+    function setPaymentSteps(method = 'qris') {
+      const selected = paymentMethods.find((item) => item.key === method) || paymentMethods[0]
+      paymentStepsEl.innerHTML = selected.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')
+      paymentMethodTagEl.innerText = `${selected.icon} ${selected.title}`
+    }
 
-        const paymentMethod = pembayaran?.metode || 'midtrans'
-        if (paymentMethod === 'midtrans') {
-          setPaymentMethodHighlight('qris')
-        } else if (paymentMethod === 'tunai') {
-          setPaymentMethodHighlight('bank_transfer')
-        } else {
-          setPaymentMethodHighlight(paymentMethod)
-        }
+    function setStatusBadge(status) {
+      const normalized = (status || 'pending').toLowerCase()
+      const map = {
+        pending: { label: 'Menunggu pembayaran', className: 'status-pending' },
+        paid: { label: 'Pembayaran diterima', className: 'status-success' },
+        settlement: { label: 'Pembayaran diterima', className: 'status-success' },
+        capture: { label: 'Pembayaran diterima', className: 'status-success' },
+        failed: { label: 'Pembayaran gagal', className: 'status-danger' },
+        cancel: { label: 'Pesanan dibatalkan', className: 'status-danger' },
+        expired: { label: 'Waktu pembayaran habis', className: 'status-danger' },
+      }
+      const state = map[normalized] || map.pending
+      statusBadgeEl.className = `payment-badge ${state.className}`
+      statusBadgeEl.innerText = state.label
+      infoStatusEl.innerText = state.label
+      state.lastStatus = normalized
+    }
+
+    function renderMenuItems(items = []) {
+      if (!items.length) {
+        menuTableEl.innerHTML = '<tr><td colspan="3" class="payment-empty-cell">Detail menu belum tersedia.</td></tr>'
+        return
       }
 
-      function tickTimer() {
-        if (timedOut) return
-        const minutes = Math.floor(remaining / 60)
-        const seconds = remaining % 60
-        timerEl.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`
-        if (remaining <= 0) {
-          handleTimeout()
+      menuTableEl.innerHTML = items.map((item) => {
+        const nama = item.menu?.nama || item.nama_menu || `Menu #${item.id_menu}`
+        const qty = Number(item.jumlah || 0)
+        const hargaSatuan = Number(item.harga_saat_pesan ?? item.harga ?? 0)
+        const totalItem = hargaSatuan * qty
+        return `
+          <tr>
+            <td>${escapeHtml(nama)}</td>
+            <td>${qty}</td>
+            <td>${money.format(totalItem)}</td>
+          </tr>
+        `
+      }).join('')
+    }
+
+    function buildQrSource(data) {
+      const payment = data?.pembayaran || {}
+      const midtrans = data?.midtrans || {}
+      const candidates = [
+        payment.snap_token && `snap-token:${payment.snap_token}`,
+        payment.qr_url,
+        payment.redirect_url,
+        midtrans.qr_url,
+        midtrans.redirect_url,
+      ].filter(Boolean)
+
+      return candidates[0] || null
+    }
+
+    function loadSnapScript() {
+      return new Promise((resolve, reject) => {
+        if (window.snap) return resolve(window.snap)
+
+        const existing = document.querySelector('script[data-midtrans-snap="true"]')
+        if (existing) {
+          existing.addEventListener('load', () => resolve(window.snap), { once: true })
+          existing.addEventListener('error', reject, { once: true })
           return
         }
-        remaining = Math.max(0, remaining - 1)
+
+        const script = document.createElement('script')
+        script.dataset.midtransSnap = 'true'
+        script.async = true
+        script.src = import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION === 'true'
+          ? 'https://app.midtrans.com/snap/snap.js'
+          : 'https://app.sandbox.midtrans.com/snap/snap.js'
+        script.setAttribute('data-client-key', import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '')
+        script.onload = () => resolve(window.snap)
+        script.onerror = reject
+        document.head.appendChild(script)
+      })
+    }
+
+    function renderQrFallback(source) {
+      if (!source) {
+        qrStageEl.innerHTML = '<p class="payment-empty-state">Menunggu QR code dari Midtrans...</p>'
+        return
       }
 
-      function renderWaiting() {
-        statusEl.className = 'status-badge payment-waiting'
-        statusEl.innerText = 'Menunggu pembayaran...'
-        qrEl.innerHTML = '<div class="payment-waiting-box">Menunggu pembayaran...</div>'
-      }
-
-      async function renderSnapButton(snapToken) {
-        qrEl.innerHTML = ''
-        const button = document.createElement('button')
-        button.className = 'primary-button'
-        button.type = 'button'
-        button.innerText = 'Buka Pembayaran Midtrans'
-        button.onclick = async () => {
-          try {
-            await loadSnap()
-            window.snap.pay(snapToken, {
+      if (source.startsWith('snap-token:')) {
+        const token = source.replace('snap-token:', '')
+        qrStageEl.innerHTML = '<p class="payment-empty-state">Memuat tampilan pembayaran...</p>'
+        loadSnapScript()
+          .then(() => {
+            if (!window.snap?.embed) {
+              qrStageEl.innerHTML = '<p class="payment-empty-state">Midtrans Snap tidak tersedia.</p>'
+              return
+            }
+            qrStageEl.innerHTML = '<div id="snap-embed"></div>'
+            window.snap.embed(token, {
+              embedId: 'snap-embed',
               onSuccess: () => {
-                renderSuccess('Pembayaran berhasil.')
+                noteTextEl.innerText = 'Pembayaran berhasil diproses.'
               },
               onPending: () => {
-                statusEl.innerText = 'Pembayaran masih menunggu konfirmasi.'
+                noteTextEl.innerText = 'Menunggu konfirmasi pembayaran.'
               },
               onError: () => {
-                statusEl.innerText = 'Pembayaran gagal dibuka.'
+                noteTextEl.innerText = 'Gagal memuat tampilan pembayaran Midtrans.'
               },
               onClose: () => {
-                statusEl.innerText = 'Popup pembayaran ditutup.'
+                noteTextEl.innerText = 'Tampilan pembayaran ditutup.'
               },
             })
-          } catch (error) {
-            statusEl.innerText = error.message || 'Gagal memuat Midtrans'
+          })
+          .catch(() => {
+            qrStageEl.innerHTML = '<p class="payment-empty-state">Gagal memuat Snap Midtrans.</p>'
+          })
+        return
+      }
+
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(source)}`
+      qrStageEl.innerHTML = `
+        <img
+          class="payment-qr-image"
+          src="${qrUrl}"
+          alt="QR code pembayaran"
+          width="300"
+          height="300"
+        />
+      `
+    }
+
+    function renderTimeoutAction(orderId) {
+      const message = `Halo Kasir, waktu pembayaran pesanan #${orderId} sudah habis. Mohon bantu batalkan atau bantu lanjutkan prosesnya.`
+      timeoutAreaEl.innerHTML = `
+        <a class="payment-button payment-button-danger" href="${whatsappLink(message)}" target="_blank" rel="noreferrer">
+          Batalkan Pesanan
+        </a>
+      `
+    }
+
+    function clearTimeoutAction() {
+      timeoutAreaEl.innerHTML = ''
+    }
+
+    function stopTimers() {
+      if (state.timerId) window.clearInterval(state.timerId)
+      if (state.pollId) window.clearInterval(state.pollId)
+    }
+
+    function setDeadlineFromOrder(createdAt) {
+      const base = createdAt ? new Date(createdAt).getTime() : Date.now()
+      state.deadline = base + 15 * 60 * 1000
+    }
+
+    function tickCountdown() {
+      const remaining = state.deadline - Date.now()
+      const formatted = formatCountdown(remaining)
+      countdownEl.innerText = formatted
+      sideTimerEl.innerText = formatted
+
+      if (remaining <= 0 && !state.timedOut) {
+        state.timedOut = true
+        timerHelperEl.innerText = 'Waktu pembayaran habis.'
+        noteTextEl.innerText = 'Waktu habis, silakan hubungi kasir.'
+        renderTimeoutAction(ORDER_ID)
+        stopTimers()
+      }
+    }
+
+    function renderOrder(data) {
+      const pesanan = data?.pesanan
+      const pembayaran = data?.pembayaran || {}
+
+      if (!pesanan) {
+        qrStageEl.innerHTML = '<p class="payment-empty-state">Pesanan tidak ditemukan.</p>'
+        noteTextEl.innerText = 'Data pesanan belum tersedia.'
+        setStatusBadge('pending')
+        return
+      }
+
+      setDeadlineFromOrder(pesanan.created_at)
+      infoOrderNumberEl.innerText = `#${pesanan.id}`
+      infoTotalEl.innerText = money.format(Number(pesanan.total || 0))
+      infoTimeEl.innerText = formatDateTime(pesanan.created_at)
+      infoCustomerEl.innerText = pesanan.customer_name || '-'
+      infoTypeEl.innerText = pesanan.tipe_pesanan === 'dine_in'
+        ? `Dine-in${pesanan.meja?.nomor_meja ? ` (Meja ${pesanan.meja.nomor_meja})` : ''}`
+        : pesanan.tipe_pesanan === 'delivery'
+          ? 'Delivery'
+          : 'Takeaway'
+
+      subtotalValueEl.innerText = money.format(Number(pesanan.subtotal || 0))
+      totalValueEl.innerText = money.format(Number(pesanan.total || 0))
+      renderMenuItems(pesanan.detail_pesanan || [])
+
+      const statusValue = pembayaran.status || pesanan.status || 'pending'
+      setStatusBadge(statusValue)
+
+      const activeMethod = pembayaran.metode === 'midtrans' ? 'qris' : (pembayaran.metode || 'qris')
+      renderMethodGrid(activeMethod)
+      setPaymentSteps(activeMethod)
+      setWhatsappButton(pesanan.id)
+
+      const qrSource = buildQrSource(data)
+      renderQrFallback(qrSource)
+
+      if (statusValue === 'paid' || statusValue === 'settlement' || statusValue === 'capture') {
+        stopTimers()
+        clearTimeoutAction()
+        timerHelperEl.innerText = 'Pembayaran sudah berhasil diterima.'
+        noteTextEl.innerText = 'Terima kasih, pesanan Anda sedang kami proses.'
+        return
+      }
+
+      if (state.timedOut) {
+        renderTimeoutAction(pesanan.id)
+      } else {
+        clearTimeoutAction()
+      }
+    }
+
+    async function refreshStatus(manual = false) {
+      if (state.timedOut && !manual) return
+
+      try {
+        const url = new URL('/api/cek-status', window.location.origin)
+        url.searchParams.set('id', ORDER_ID)
+        if (TESTING) url.searchParams.set('testing', '1')
+
+        const response = await fetch(url.toString(), { cache: 'no-store' })
+        const data = await response.json()
+        state.loadCount += 1
+        state.lastStatus = data?.status || data?.pembayaran?.status || null
+
+        if (response.status === 404 || data?.not_found) {
+          if (data?.pesanan) {
+            renderOrder({
+              ...data,
+              pembayaran: data.pembayaran || {
+                status: 'pending',
+                metode: 'midtrans',
+              },
+            })
           }
-        }
-        qrEl.appendChild(button)
-      }
-
-      function renderSuccess(message = 'Pembayaran diterima. Pesanan diproses.') {
-        statusEl.innerText = message
-        statusEl.className = 'status-badge status-paid'
-        qrEl.innerHTML = ''
-        timeoutAction.innerHTML = ''
-        if (poll) clearInterval(poll)
-        timedOut = true
-        window.dispatchEvent(new Event('warung-payment-success'))
-      }
-
-      function handleTimeout() {
-        timedOut = true
-        if (poll) clearInterval(poll)
-        statusEl.className = 'status-badge status-failed'
-        statusEl.innerText = 'Waktu habis, silakan hubungi kasir'
-        qrEl.innerHTML = ''
-        timeoutAction.innerHTML = ''
-        if (whatsappCs) {
-          const a = document.createElement('a')
-          a.className = 'footer-whatsapp'
-          a.href = `https://wa.me/${whatsappCs}`
-          a.target = '_blank'
-          a.rel = 'noreferrer'
-          a.innerText = 'WhatsApp CS'
-          timeoutAction.appendChild(a)
-        }
-      }
-
-      async function fetchStatus() {
-        if (timedOut) return
-
-        if (testingMode) {
-          renderSuccess('Mode testing aktif. Pembayaran dianggap sukses.')
+          if (manual) {
+            noteTextEl.innerText = 'Status transaksi belum ditemukan. Sistem akan mencoba lagi.'
+          }
+          if (state.loadCount >= 10 && !state.lastStatus) {
+            noteTextEl.innerText = 'Transaksi masih belum ditemukan di Midtrans. Status dianggap pending.'
+          }
           return
         }
 
-        try {
-          const res = await fetch(`/api/cek-status?id=${id}`)
-          const data = await res.json()
-          renderSummary(data)
-
-          if (res.status === 404 || data.not_found) {
-            retryCount404 += 1
-            renderWaiting()
-            if (retryCount404 >= 10) {
-              statusEl.innerText = 'Menunggu pembayaran...'
-            }
-            return
-          }
-
-          if (!res.ok) {
-            renderWaiting()
-            return
-          }
-
-          const currentStatus = data.status || data.pembayaran?.status || data.midtrans?.transaction_status
-          if (['paid', 'settlement', 'capture'].includes(currentStatus)) {
-            renderSuccess('Pembayaran diterima. Pesanan diproses.')
-            return
-          }
-
-          if (['failed', 'deny', 'cancel', 'expire', 'failure'].includes(currentStatus)) {
-            statusEl.className = 'status-badge status-failed'
-            statusEl.innerText = 'Pembayaran gagal. Silakan coba lagi atau hubungi kasir.'
-            return
-          }
-
-          if (data.pembayaran?.snap_token && clientKey && !testingMode) {
-            statusEl.className = 'status-badge payment-waiting'
-            statusEl.innerText = 'Menunggu pembayaran...'
-            await renderSnapButton(data.pembayaran.snap_token)
-            return
-          }
-
-          renderWaiting()
-        } catch (error) {
-          console.error(error)
-          renderWaiting()
-        }
+        renderOrder(data)
+      } catch (error) {
+        noteTextEl.innerText = 'Gagal memuat status pembayaran. Silakan coba lagi.'
+        console.error(error)
       }
+    }
 
-      async function loadSnap() {
-        if (window.snap) return window.snap
-        if (!clientKey) throw new Error('MIDTRANS client key belum diset')
-        if (snapLoadingPromise) return snapLoadingPromise
+    refreshButtonEl.addEventListener('click', () => refreshStatus(true))
 
-        snapLoadingPromise = new Promise((resolve, reject) => {
-          const script = document.createElement('script')
-          script.src = isProduction
-            ? 'https://app.midtrans.com/snap/snap.js'
-            : 'https://app.sandbox.midtrans.com/snap/snap.js'
-          script.setAttribute('data-client-key', clientKey)
-          script.async = true
-          script.onload = () => resolve(window.snap)
-          script.onerror = () => reject(new Error('Gagal memuat Snap Midtrans'))
-          document.head.appendChild(script)
-        })
+    if (TESTING) {
+      noteTextEl.innerText = 'Mode testing aktif. Status pembayaran akan langsung disimulasikan.'
+    }
 
-        return snapLoadingPromise
-      }
+    state.timerId = window.setInterval(tickCountdown, 1000)
+    tickCountdown()
 
-      renderWaiting()
-      fetchStatus()
-      tickTimer()
-      poll = setInterval(fetchStatus, 3000)
-      setInterval(tickTimer, 1000)
+    state.pollId = window.setInterval(() => {
+      refreshStatus(false)
+    }, 5000)
+
+    refreshStatus(true)
   </script>
+
+  <style>
+    :global(body) {
+      background: #fdf8f5;
+    }
+
+    .payment-page-shell {
+      min-height: 100vh;
+      padding: 2rem 1rem 3rem;
+      background:
+        radial-gradient(circle at top left, rgba(231, 111, 81, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(42, 157, 143, 0.12), transparent 24%),
+        #fdf8f5;
+    }
+
+    .payment-page {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .payment-hero {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .payment-eyebrow {
+      margin: 0 0 .35rem;
+      color: #e76f51;
+      font-size: .85rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .payment-hero h1 {
+      margin: 0;
+      font-size: clamp(2rem, 3vw, 3rem);
+      line-height: 1.05;
+      color: #2b1f1a;
+    }
+
+    .payment-subtitle {
+      margin: .6rem 0 0;
+      color: rgba(43, 31, 26, .72);
+      max-width: 56ch;
+    }
+
+    .payment-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .7rem;
+      align-items: center;
+    }
+
+    .payment-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .75rem 1rem;
+      border-radius: 999px;
+      font-size: .92rem;
+      font-weight: 800;
+      box-shadow: 0 10px 24px rgba(43, 31, 26, .08);
+    }
+
+    .payment-badge strong {
+      font-weight: 900;
+    }
+
+    .payment-badge-muted {
+      color: #2b1f1a;
+      background: rgba(255, 255, 255, .95);
+    }
+
+    .payment-badge-warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-danger {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .payment-announcement {
+      display: flex;
+      align-items: flex-start;
+      gap: .85rem;
+      padding: .95rem 1rem;
+      margin-bottom: 1rem;
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      border-radius: .95rem;
+      color: #5c4211;
+      box-shadow: 0 10px 24px rgba(43, 31, 26, .06);
+    }
+
+    .payment-announcement p {
+      margin: 0;
+      font-size: .94rem;
+      line-height: 1.55;
+    }
+
+    .payment-announcement-icon {
+      flex: none;
+      width: 1.7rem;
+      height: 1.7rem;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .6);
+    }
+
+    .payment-announcement-block {
+      margin-bottom: 0;
+    }
+
+    .payment-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .payment-column {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .payment-side {
+      position: sticky;
+      top: 1rem;
+    }
+
+    .payment-card {
+      background: rgba(255, 255, 255, .98);
+      border: 1px solid rgba(43, 31, 26, .08);
+      border-radius: 1rem;
+      padding: 1rem;
+      box-shadow: 0 16px 36px rgba(43, 31, 26, .07);
+    }
+
+    .payment-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      margin-bottom: .9rem;
+    }
+
+    .payment-card-header-center {
+      justify-content: center;
+    }
+
+    .payment-card h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #2b1f1a;
+    }
+
+    .payment-mini-badge,
+    .payment-mini-note {
+      display: inline-flex;
+      align-items: center;
+      padding: .3rem .7rem;
+      border-radius: 999px;
+      font-size: .82rem;
+      font-weight: 800;
+      background: rgba(231, 111, 81, .08);
+      color: #e76f51;
+    }
+
+    .payment-mini-note {
+      background: rgba(42, 157, 143, .08);
+      color: #2a9d8f;
+    }
+
+    .payment-card-timer {
+      text-align: center;
+      background:
+        linear-gradient(180deg, rgba(231, 111, 81, .08), rgba(255, 255, 255, 0)),
+        rgba(255, 255, 255, .98);
+    }
+
+    .payment-card-label {
+      margin: 0 0 .45rem;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #e76f51;
+    }
+
+    .payment-countdown,
+    .payment-qr-timer {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 900;
+      letter-spacing: .04em;
+      color: #2b1f1a;
+    }
+
+    .payment-helper {
+      margin: .5rem 0 0;
+      color: rgba(43, 31, 26, .72);
+      font-size: .94rem;
+      line-height: 1.55;
+    }
+
+    .payment-info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .75rem;
+    }
+
+    .payment-info-item {
+      padding: .9rem;
+      border-radius: .95rem;
+      background: #fffaf7;
+      border: 1px solid rgba(43, 31, 26, .08);
+    }
+
+    .payment-info-item span {
+      display: block;
+      margin-bottom: .35rem;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: rgba(43, 31, 26, .58);
+    }
+
+    .payment-info-item strong {
+      display: block;
+      font-size: .98rem;
+      color: #2b1f1a;
+    }
+
+    .payment-order-meta {
+      margin-top: .85rem;
+      display: grid;
+      gap: .4rem;
+      color: rgba(43, 31, 26, .82);
+    }
+
+    .payment-order-meta p {
+      margin: 0;
+      font-size: .95rem;
+      line-height: 1.5;
+    }
+
+    .payment-order-meta strong {
+      color: #2b1f1a;
+    }
+
+    .payment-table-wrap {
+      overflow-x: auto;
+      border: 1px solid rgba(43, 31, 26, .08);
+      border-radius: .95rem;
+    }
+
+    .payment-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 420px;
+      background: #fff;
+    }
+
+    .payment-table th,
+    .payment-table td {
+      padding: .85rem .9rem;
+      border-bottom: 1px solid rgba(43, 31, 26, .08);
+      text-align: left;
+      font-size: .94rem;
+    }
+
+    .payment-table th {
+      background: #fff7f2;
+      color: #2b1f1a;
+      font-weight: 900;
+    }
+
+    .payment-empty-cell {
+      text-align: center !important;
+      color: rgba(43, 31, 26, .62);
+      font-size: .92rem;
+      padding: 1.1rem !important;
+    }
+
+    .payment-totals {
+      margin-top: .9rem;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .75rem;
+      padding: .95rem;
+      border-radius: .95rem;
+      background: #fff7f2;
+      border: 1px solid rgba(231, 111, 81, .14);
+    }
+
+    .payment-totals span {
+      display: block;
+      margin-bottom: .3rem;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: rgba(43, 31, 26, .6);
+    }
+
+    .payment-totals strong {
+      display: block;
+      color: #2b1f1a;
+      font-size: 1rem;
+    }
+
+    .payment-method-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .75rem;
+    }
+
+    .method-card {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: .75rem;
+      align-items: center;
+      padding: .85rem;
+      border-radius: .95rem;
+      background: #fffaf7;
+      border: 1px solid rgba(43, 31, 26, .08);
+    }
+
+    .method-card.is-active {
+      border-color: rgba(231, 111, 81, .45);
+      box-shadow: 0 14px 28px rgba(231, 111, 81, .11);
+      background: rgba(231, 111, 81, .08);
+    }
+
+    .method-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: .8rem;
+      background: rgba(231, 111, 81, .12);
+      font-size: 1.1rem;
+    }
+
+    .method-card strong {
+      display: block;
+      color: #2b1f1a;
+      font-size: .95rem;
+    }
+
+    .method-card p {
+      margin: .2rem 0 0;
+      color: rgba(43, 31, 26, .68);
+      font-size: .84rem;
+      line-height: 1.45;
+    }
+
+    .payment-steps {
+      margin: 0;
+      padding-left: 1.2rem;
+      color: #2b1f1a;
+      display: grid;
+      gap: .5rem;
+      line-height: 1.55;
+    }
+
+    .payment-actions {
+      display: grid;
+      gap: .7rem;
+    }
+
+    .payment-button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      padding: .95rem 1rem;
+      border-radius: .95rem;
+      font-weight: 900;
+      text-decoration: none;
+      border: 0;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+    }
+
+    .payment-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .payment-button-primary {
+      background: #25d366;
+      color: #fff;
+      box-shadow: 0 14px 26px rgba(37, 211, 102, .22);
+    }
+
+    .payment-button-secondary {
+      background: #fff;
+      color: #2b1f1a;
+      border: 1px solid rgba(43, 31, 26, .12);
+    }
+
+    .payment-button-danger {
+      background: #ef4444;
+      color: #fff;
+      box-shadow: 0 14px 26px rgba(239, 68, 68, .18);
+    }
+
+    .payment-qr-card {
+      text-align: center;
+    }
+
+    .payment-qr-shell {
+      display: flex;
+      justify-content: center;
+      margin: .9rem 0;
+    }
+
+    .payment-qr-stage {
+      width: 300px;
+      min-height: 300px;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      border-radius: 1rem;
+      background: #fff;
+      border: 2px dashed rgba(231, 111, 81, .45);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
+      overflow: hidden;
+    }
+
+    .payment-qr-image {
+      width: 300px;
+      height: 300px;
+      display: block;
+      object-fit: contain;
+      border-radius: .75rem;
+    }
+
+    .payment-empty-state {
+      margin: 0;
+      color: rgba(43, 31, 26, .68);
+      font-size: .95rem;
+      line-height: 1.55;
+      text-align: center;
+    }
+
+    .payment-qr-caption {
+      margin: 0;
+      color: rgba(43, 31, 26, .72);
+      font-size: .92rem;
+      line-height: 1.55;
+    }
+
+    .payment-qr-actions {
+      margin-top: .85rem;
+      display: grid;
+      gap: .7rem;
+    }
+
+    #snap-embed {
+      width: 100%;
+    }
+
+    @media (max-width: 980px) {
+      .payment-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .payment-side {
+        position: static;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .payment-page-shell {
+        padding: 1rem .85rem 2rem;
+      }
+
+      .payment-hero {
+        flex-direction: column;
+      }
+
+      .payment-info-grid,
+      .payment-method-grid,
+      .payment-totals {
+        grid-template-columns: 1fr;
+      }
+
+      .payment-qr-stage {
+        width: 100%;
+        min-height: 280px;
+      }
+
+      .payment-qr-image {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+      }
+    }
+  </style>
 </Layout>
