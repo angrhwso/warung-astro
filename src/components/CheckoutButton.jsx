@@ -37,6 +37,12 @@ export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, meto
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Checkout gagal')
 
+      console.log('[checkout] create-payment response', {
+        orderId: data.pesanan?.id || data.midtrans?.order_id,
+        hasSnapToken: Boolean(data.snapToken),
+        hasRedirectUrl: Boolean(data.redirectUrl),
+      })
+
       // redirect to payment page (will show QR/links)
       const pesananId = data.pesanan?.id || (data.midtrans && data.midtrans.order_id?.split('-')[1])
       const params = new URLSearchParams()
