@@ -1,157 +1,385 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { supabase } from '../../lib/supabase';
+import Layout from '../../layouts/Layout.astro'
+import ConfettiEffect from '../../components/ConfettiEffect.jsx'
+import PaymentCountdown from '../../components/PaymentCountdown.jsx'
+import { supabaseAdmin } from '../../lib/supabase'
 
-const id = Astro.params.id;
+const id = Astro.params.id
+const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
+const testing = Astro.url.searchParams.get('testing') === '1'
+const midtransClientKey = import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || ''
+const midtransProduction = String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true'
+const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
 
-// Ambil data pesanan + detail menu + snap_token
-const { data: pesanan, error } = await supabase
-  .from('pesanan')
-  .select(`
-    *,
-    detail_pesanan (
-      id, jumlah, harga_saat_pesan,
-      menu (id, nama, harga)
-    ),
-    pembayaran (snap_token, status)
-  `)
-  .eq('id', id)
-  .single();
+let pesanan = null
+let pembayaran = null
 
-if (error || !pesanan) {
-  return Astro.redirect('/');
+if (supabaseAdmin) {
+  const [{ data: orderData }, { data: paymentData }] = await Promise.all([
+    supabaseAdmin
+      .from('pesanan')
+      .select('id, total, status, created_at, customer_name, tipe_pesanan, detail_pesanan(id, jumlah, harga_saat_pesan, catatan_item, menu(id, nama, harga, gambar_url))')
+      .eq('id', Number(id))
+      .maybeSingle(),
+    supabaseAdmin
+      .from('pembayaran')
+      .select('*')
+      .eq('id_pesanan', Number(id))
+      .maybeSingle(),
+  ])
+
+  pesanan = orderData
+  pembayaran = paymentData
 }
 
-const items = pesanan.detail_pesanan || [];
-const total = items.reduce((sum, item) => sum + (item.jumlah * item.harga_saat_pesan), 0);
-const snapToken = pesanan.pembayaran?.[0]?.snap_token || null;
-const createdAt = pesanan.created_at;
-
-// Hitung sisa waktu di server (opsional)
-const deadline = new Date(createdAt).getTime() + 15 * 60 * 1000;
-const remaining = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
-const initialMinutes = Math.floor(remaining / 60);
-const initialSeconds = remaining % 60;
+const menuItems = pesanan?.detail_pesanan || []
+const createdAt = pesanan?.created_at || new Date().toISOString()
+const totalRupiah = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0,
+}).format(Number(pesanan?.total || 0))
+const snapToken = pembayaran?.snap_token || ''
 ---
 
-<Layout title="Pembayaran">
-  <div class="max-w-md mx-auto p-4">
-    <div class="bg-white rounded-xl shadow-lg p-5">
-      
-      <h1 class="text-xl font-bold text-center">🍜 Selesaikan Pembayaran</h1>
-      <p class="text-center text-gray-500 text-sm">Order #{pesanan.id}</p>
-      
-      {/* TIMER - Versi Manual dengan JavaScript */}
-      <div class="bg-orange-50 p-3 rounded-lg text-center my-4">
-        <p class="text-sm">Selesaikan dalam:</p>
-        <div id="timerDisplay" class="text-3xl font-bold font-mono">
-          {String(initialMinutes).padStart(2, '0')}:{String(initialSeconds).padStart(2, '0')}
+<Layout title={`Pembayaran ${orderLabel}`}>
+  <main class="min-h-screen bg-[#FDF8F5] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+    <section class="mx-auto max-w-7xl">
+      <header class="mb-6 flex flex-col gap-4 rounded-[1.75rem] border border-[#e76f51]/10 bg-white/85 p-5 shadow-[0_18px_60px_rgba(43,31,26,0.08)] backdrop-blur sm:p-6 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p class="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#e76f51]">Pembayaran</p>
+          <h1 class="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">🍜 Selesaikan Pembayaran</h1>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Lanjutkan pembayaran melalui transfer bank sementara, lalu status akan diperbarui otomatis.
+          </p>
         </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="inline-flex items-center rounded-full bg-[#FDF8F5] px-4 py-2 text-sm font-bold text-slate-700 ring-1 ring-slate-200">
+            Order ID: <strong class="ml-1 text-slate-900">{orderLabel}</strong>
+          </span>
+          <span id="statusBadge" class="inline-flex animate-pulse items-center rounded-full bg-[#FEF3C7] px-4 py-2 text-sm font-bold text-[#92400e] ring-1 ring-[#f59e0b]/20">
+            Menunggu Pembayaran
+          </span>
+        </div>
+      </header>
+
+      <div class="mb-6 flex items-start gap-3 rounded-2xl border-l-4 border-[#F59E0B] bg-[#FEF3C7] px-4 py-3 text-sm leading-6 text-[#7c5a12] shadow-sm">
+        <div class="text-base leading-none">ℹ️</div>
+        <p class="m-0">Saat ini pembayaran hanya transfer bank. QRIS/GoPay sedang maintenance.</p>
       </div>
-      
-      {/* DAFTAR MENU */}
-      <div class="border rounded-lg p-3 my-4">
-        <h3 class="font-bold mb-2">🍽️ Pesanan Anda:</h3>
-        {items.length === 0 ? (
-          <p class="text-gray-500 text-sm">Tidak ada item</p>
-        ) : (
-          items.map(item => (
-            <div class="flex justify-between text-sm py-1 border-b last:border-0">
-              <span>{item.menu?.nama} <span class="text-gray-500">x{item.jumlah}</span></span>
-              <span>Rp {(item.jumlah * item.harga_saat_pesan).toLocaleString()}</span>
+
+      <div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <section class="grid gap-6">
+          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Timer</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Waktu Pembayaran</h2>
+              </div>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">15 menit</span>
             </div>
-          ))
-        )}
-        <div class="mt-2 pt-2 font-bold flex justify-between border-t">
-          <span>Total</span>
-          <span>Rp {total.toLocaleString()}</span>
-        </div>
+            <div class="flex justify-center">
+              <PaymentCountdown client:load createdAt={createdAt} />
+            </div>
+            <p class="mt-4 text-center text-sm text-slate-600">Timer berdetak halus. Hijau saat aman, kuning saat mendekati batas, merah saat hampir habis.</p>
+          </article>
+
+          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Detail Pesanan</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Menu yang Dipesan</h2>
+              </div>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">Live from Supabase</span>
+            </div>
+
+            <div class="overflow-hidden rounded-2xl border border-slate-200">
+              <div class="grid grid-cols-[72px_1fr_auto] gap-4 bg-[#fff7f2] px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-600">
+                <span>Foto</span>
+                <span>Menu</span>
+                <span class="text-right">Harga</span>
+              </div>
+              <div id="menuList" class="divide-y divide-slate-200">
+                {menuItems.length ? menuItems.map((item) => (
+                  <div class="grid grid-cols-[72px_1fr_auto] items-center gap-4 px-4 py-4">
+                    <div class="overflow-hidden rounded-2xl bg-[#FDF8F5] ring-1 ring-slate-200">
+                      {item.menu?.gambar_url ? (
+                        <img src={item.menu.gambar_url} alt={item.menu?.nama || 'Menu'} class="h-[72px] w-[72px] object-cover" />
+                      ) : (
+                        <div class="flex h-[72px] w-[72px] items-center justify-center text-xs font-bold text-slate-500">Menu</div>
+                      )}
+                    </div>
+                    <div>
+                      <strong class="block text-sm font-black text-slate-900">{item.menu?.nama || `Menu #${item.id_menu}`}</strong>
+                      <span class="mt-1 inline-flex rounded-full bg-[#2A9D8F]/10 px-2 py-1 text-xs font-semibold text-[#2A9D8F]">Qty {item.jumlah}</span>
+                    </div>
+                    <div class="text-right text-sm font-black text-slate-900">
+                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(item.harga_saat_pesan || 0) * Number(item.jumlah || 0))}
+                    </div>
+                  </div>
+                )) : (
+                  <div class="px-4 py-6 text-center text-sm text-slate-500">Detail pesanan belum tersedia.</div>
+                )}
+              </div>
+            </div>
+
+            <div class="mt-4 rounded-2xl bg-[#fff7f2] p-4 ring-1 ring-[#e76f51]/10">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-sm font-bold text-slate-600">Total Harga</span>
+                <strong id="totalValue" class="text-2xl font-black tracking-tight text-slate-900">{totalRupiah}</strong>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <aside class="grid gap-6">
+          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Metode Pembayaran</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Transfer Bank</h2>
+              </div>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">Sementara</span>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="rounded-2xl border border-[#e76f51]/20 bg-[#fff7f2] px-4 py-3 shadow-sm">
+                <span class="block text-sm font-black text-slate-900">Bank Transfer</span>
+                <span class="mt-1 block text-xs leading-5 text-slate-600">BCA, BNI, BRI, Mandiri.</span>
+              </div>
+              <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <span class="block text-sm font-black text-slate-900">Status</span>
+                <span class="mt-1 block text-xs leading-5 text-slate-600">Instruksi pembayaran muncul via Midtrans Snap.</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
+            <div class="mb-4 text-center">
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Transfer Bank</p>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Buka instruksi pembayaran</h2>
+            </div>
+
+            <div class="rounded-[1.25rem] border-2 border-dashed border-[#e76f51] bg-white p-4 shadow-sm">
+              <div class="flex flex-col gap-4 rounded-2xl bg-[#FDF8F5] p-4 ring-1 ring-slate-200">
+                <div class="flex items-start gap-3">
+                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#e76f51] text-white">1</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">Klik tombol buka pembayaran</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">Midtrans akan menampilkan detail transfer bank.</p>
+                  </div>
+                </div>
+                <div class="flex items-start gap-3">
+                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#e76f51] text-white">2</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">Pilih bank yang tersedia</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">BCA, BNI, BRI, atau Mandiri.</p>
+                  </div>
+                </div>
+                <div class="flex items-start gap-3">
+                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#2A9D8F] text-white">3</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">Selesaikan transfer</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">Status akan ter-update otomatis setelah transfer berhasil.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+              <button id="openPaymentButton" type="button" class="inline-flex items-center justify-center rounded-2xl bg-[#e76f51] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(231,111,81,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50">
+                💳 Buka Instruksi Transfer
+              </button>
+              <button id="refreshButton" type="button" class="inline-flex items-center justify-center rounded-2xl border border-[#e76f51] px-4 py-3 text-sm font-black text-[#e76f51] transition hover:bg-[#e76f51] hover:text-white">
+                🔄 Cek Status Pembayaran
+              </button>
+            </div>
+
+            <a id="whatsappButton" href="#" target="_blank" rel="noreferrer" class="mt-3 inline-flex w-full items-center justify-center rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(37,211,102,0.22)] transition hover:-translate-y-0.5">
+              💬 Hubungi Kasir
+            </a>
+          </article>
+        </aside>
       </div>
-      
-      {/* METODE PEMBAYARAN */}
-      <div class="bg-blue-50 p-3 rounded-lg text-center text-sm my-4">
-        <p class="font-bold">🏦 Bank Transfer (BCA/BNI/BRI/Mandiri)</p>
-        <p class="text-gray-600 mt-1">Klik tombol di bawah untuk melihat instruksi pembayaran.</p>
+
+      <div class="mt-6">
+        <p id="noteText" class="m-0 text-sm text-slate-600">Pesanan Anda sedang menunggu pembayaran.</p>
+        <div id="timeoutArea" class="mt-4"></div>
       </div>
-      
-      {/* TOMBOL BAYAR */}
-      <button id="payButton" class="w-full bg-orange-500 text-white py-3 rounded-lg font-bold mt-2">
-        💳 Buka Pembayaran
-      </button>
-      
-      <a href="/" class="block text-center text-gray-500 text-sm mt-4">← Kembali</a>
-      
-    </div>
-  </div>
-  
-  <script is:inline>
-    // Data dari server
-    const snapToken = { JSON.stringify(snapToken) };
-    const clientKey = { JSON.stringify(import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '') };
-    const isProduction = { JSON.stringify(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') } === 'true';
-    const deadlineServer = { deadline };
-    
-    // ========== TIMER ==========
-    function updateTimer() {
-      const now = Date.now();
-      const remaining = Math.max(0, Math.floor((deadlineServer - now) / 1000));
-      const minutes = Math.floor(remaining / 60);
-      const seconds = remaining % 60;
-      const timerDisplay = document.getElementById('timerDisplay');
-      if (timerDisplay) {
-        timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        if (remaining <= 0) {
-          timerDisplay.style.color = 'red';
-        } else if (remaining < 300) {
-          timerDisplay.style.color = 'orange';
-        } else {
-          timerDisplay.style.color = 'green';
+    </section>
+
+    <ConfettiEffect client:load />
+  </main>
+
+  <script is:inline type="module">
+    const ORDER_ID = ${JSON.stringify(id)}
+    const TESTING = ${JSON.stringify(testing)}
+    const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
+    const MIDTRANS_CLIENT_KEY = ${JSON.stringify(midtransClientKey)}
+    const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(midtransProduction)}
+    const SNAP_TOKEN = ${JSON.stringify(snapToken)}
+
+    const money = new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    })
+
+    const els = {
+      statusBadge: document.getElementById('statusBadge'),
+      refreshButton: document.getElementById('refreshButton'),
+      openPaymentButton: document.getElementById('openPaymentButton'),
+      whatsappButton: document.getElementById('whatsappButton'),
+      noteText: document.getElementById('noteText'),
+      timeoutArea: document.getElementById('timeoutArea'),
+      infoOrderNumber: document.getElementById('infoOrderNumber'),
+    }
+
+    const state = {
+      deadline: new Date(${JSON.stringify(createdAt)}).getTime() + 15 * 60 * 1000,
+      timerId: null,
+      pollId: null,
+      timedOut: false,
+      paymentOpened: false,
+    }
+
+    function normalizePhone(value) {
+      return String(value || '').replace(/[^\d]/g, '')
+    }
+
+    function waLink(message) {
+      const phone = normalizePhone(WHATSAPP_CS)
+      if (!phone) return '#'
+      return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+    }
+
+    function setWhatsappButton(orderId) {
+      els.whatsappButton.href = waLink(`Halo Kasir, saya ingin konfirmasi pembayaran untuk pesanan #${orderId}.`)
+    }
+
+    function setStatus(status) {
+      const value = String(status || 'pending').toLowerCase()
+      const map = {
+        pending: 'Menunggu Pembayaran',
+        paid: 'Pembayaran Diterima',
+        settlement: 'Pembayaran Diterima',
+        capture: 'Pembayaran Diterima',
+        failed: 'Pembayaran Gagal',
+        cancel: 'Pesanan Dibatalkan',
+        expired: 'Waktu Habis',
+      }
+      els.statusBadge.innerText = map[value] || 'Menunggu Pembayaran'
+    }
+
+    function formatCountdown(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000))
+      const minutes = String(Math.floor(total / 60)).padStart(2, '0')
+      const seconds = String(total % 60).padStart(2, '0')
+      return `${minutes}:${seconds}`
+    }
+
+    function tickCountdown() {
+      const remaining = state.deadline - Date.now()
+      const timerValue = formatCountdown(remaining)
+      document.querySelectorAll('[data-countdown]').forEach((node) => {
+        node.textContent = timerValue
+        node.style.color = remaining < 2 * 60 * 1000 ? '#ef4444' : remaining < 5 * 60 * 1000 ? '#f59e0b' : '#2A9D8F'
+      })
+
+      if (remaining <= 0 && !state.timedOut) {
+        state.timedOut = true
+        els.noteText.innerText = 'Waktu habis, silakan hubungi kasir.'
+        els.timeoutArea.innerHTML = `
+          <a class="inline-flex items-center justify-center rounded-2xl bg-[#ef4444] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(239,68,68,0.18)]" href="${waLink(`Halo Kasir, waktu pembayaran pesanan #${ORDER_ID} sudah habis. Mohon bantu batalkan pesanan.`)}" target="_blank" rel="noreferrer">
+            Batalkan Pesanan
+          </a>
+        `
+        clearInterval(state.timerId)
+        clearInterval(state.pollId)
+      }
+    }
+
+    function loadSnapScript() {
+      if (window.snap) return Promise.resolve()
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.async = true
+        script.src = MIDTRANS_IS_PRODUCTION ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js'
+        script.setAttribute('data-client-key', MIDTRANS_CLIENT_KEY)
+        script.onload = resolve
+        script.onerror = reject
+        document.head.appendChild(script)
+      })
+    }
+
+    function openPayment() {
+      if (!SNAP_TOKEN) {
+        els.noteText.innerText = 'Token pembayaran belum tersedia.'
+        return
+      }
+
+      loadSnapScript()
+        .then(() => {
+          if (!window.snap?.pay) throw new Error('Snap Midtrans belum siap')
+          state.paymentOpened = true
+          window.snap.pay(SNAP_TOKEN, {
+            onSuccess: () => {
+              window.location.href = `/pembayaran/sukses/${ORDER_ID}`
+            },
+            onPending: () => {
+              els.noteText.innerText = 'Menunggu konfirmasi transfer bank.'
+            },
+            onError: () => {
+              els.noteText.innerText = 'Gagal membuka instruksi transfer bank.'
+            },
+            onClose: () => {
+              if (!state.paymentOpened) return
+              els.noteText.innerText = 'Instruksi pembayaran ditutup. Silakan buka lagi jika perlu.'
+            },
+          })
+        })
+        .catch((error) => {
+          console.error(error)
+          els.noteText.innerText = 'Gagal memuat Midtrans Snap.'
+        })
+    }
+
+    async function refreshStatus() {
+      try {
+        const url = new URL('/api/cek-status', window.location.origin)
+        url.searchParams.set('id', ORDER_ID)
+        if (TESTING) url.searchParams.set('testing', '1')
+        const response = await fetch(url, { cache: 'no-store' })
+        const data = await response.json()
+
+        if (response.status === 404 || data?.not_found) {
+          els.noteText.innerText = 'Transaksi belum ditemukan di Midtrans. Status dianggap pending.'
+          return
         }
+
+        const pesanan = data?.pesanan
+        const pembayaran = data?.pembayaran
+        if (pesanan) {
+          els.infoOrderNumber.innerText = `#${pesanan.id}`
+        }
+        if (pembayaran?.status) setStatus(pembayaran.status)
+        if (['paid', 'settlement', 'capture'].includes(String(pembayaran?.status || '').toLowerCase())) {
+          window.location.href = `/pembayaran/sukses/${pesanan.id}`
+        }
+      } catch (error) {
+        console.error(error)
+        els.noteText.innerText = 'Gagal memuat status pembayaran. Coba lagi sebentar.'
       }
     }
-    
-    updateTimer();
-    const timerInterval = setInterval(updateTimer, 1000);
-    
-    // ========== PAYMENT ==========
-    function loadSnapAndPay() {
-      if (!snapToken) {
-        alert('Token pembayaran tidak ditemukan. Silakan hubungi kasir.');
-        return;
-      }
-      
-      // Load Snap.js jika belum ada
-      if (window.snap) {
-        window.snap.pay(snapToken, {
-          onSuccess: () => { window.location.href = '/sukses'; },
-          onError: (err) => { alert('Error: ' + JSON.stringify(err)); }
-        });
-        return;
-      }
-      
-      // Load script Snap.js dulu
-      const script = document.createElement('script');
-      script.src = isProduction 
-        ? 'https://app.midtrans.com/snap/snap.js' 
-        : 'https://app.sandbox.midtrans.com/snap/snap.js';
-      script.setAttribute('data-client-key', clientKey);
-      script.onload = () => {
-        window.snap.pay(snapToken, {
-          onSuccess: () => { window.location.href = '/sukses'; },
-          onError: (err) => { alert('Error: ' + JSON.stringify(err)); }
-        });
-      };
-      script.onerror = () => { alert('Gagal memuat Midtrans Snap'); };
-      document.head.appendChild(script);
-    }
-    
-    // Pasang event listener ke tombol
-    const btn = document.getElementById('payButton');
-    if (btn) {
-      btn.onclick = loadSnapAndPay;
-    }
-    
-    // Cleanup timer saat halaman ditutup
-    window.addEventListener('beforeunload', () => clearInterval(timerInterval));
+
+    els.refreshButton.addEventListener('click', () => refreshStatus())
+    els.openPaymentButton.addEventListener('click', openPayment)
+    setWhatsappButton(ORDER_ID)
+
+    state.timerId = window.setInterval(tickCountdown, 1000)
+    state.pollId = window.setInterval(refreshStatus, 5000)
+    tickCountdown()
+    refreshStatus()
   </script>
 </Layout>
