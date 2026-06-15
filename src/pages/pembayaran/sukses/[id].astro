@@ -1,0 +1,92 @@
+---
+import Layout from '../../../layouts/Layout.astro'
+import ConfettiEffect from '../../../components/ConfettiEffect.jsx'
+
+const id = Astro.params.id
+---
+
+<Layout title={`Pembayaran Berhasil #${id}`}>
+  <main class="success-page">
+    <section class="success-card">
+      <p class="eyebrow">Pembayaran Sukses</p>
+      <h1>Terima kasih, pembayaran Anda sudah diterima.</h1>
+      <p class="success-copy">Pesanan <strong>#{id}</strong> sedang diproses oleh dapur. Silakan tunggu sampai pesanan siap.</p>
+      <div class="success-actions">
+        <a class="success-button" href="/">Kembali ke Menu</a>
+        <a class="success-button secondary" href="/riwayat">Lihat Riwayat</a>
+      </div>
+    </section>
+    <ConfettiEffect client:load />
+  </main>
+
+  <style>
+    :global(body) {
+      background: #fdf8f5;
+    }
+
+    .success-page {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .success-card {
+      width: min(720px, 100%);
+      background: #fff;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      border: 1px solid rgba(43, 31, 26, .08);
+      box-shadow: 0 16px 36px rgba(43, 31, 26, .07);
+      text-align: center;
+    }
+
+    .eyebrow {
+      margin: 0 0 .35rem;
+      color: #e76f51;
+      font-size: .85rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .success-card h1 {
+      margin: 0;
+      color: #2b1f1a;
+      font-size: clamp(2rem, 3vw, 3rem);
+    }
+
+    .success-copy {
+      margin: .8rem auto 0;
+      max-width: 54ch;
+      color: rgba(43, 31, 26, .72);
+      line-height: 1.6;
+    }
+
+    .success-actions {
+      margin-top: 1rem;
+      display: flex;
+      gap: .75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .success-button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: .95rem 1.2rem;
+      border-radius: .9rem;
+      background: #e76f51;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 800;
+    }
+
+    .success-button.secondary {
+      background: #fff;
+      color: #2b1f1a;
+      border: 1px solid rgba(43, 31, 26, .12);
+    }
+  </style>
+</Layout>

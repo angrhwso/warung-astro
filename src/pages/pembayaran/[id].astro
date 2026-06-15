@@ -5,34 +5,29 @@ import ConfettiEffect from '../../components/ConfettiEffect.jsx'
 const id = Astro.params.id
 const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
 const testing = Astro.url.searchParams.get('testing') === '1'
+const midtransClientKey = import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || ''
+const midtransProduction = String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true'
+const orderBadge = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
 ---
 
-<Layout title={`Pembayaran Pesanan #${id}`}>
+<Layout title={`Pembayaran Pesanan ${orderBadge}`}>
   <main class="payment-page-shell">
-    <section
-      class="payment-page"
-      data-order-id={id}
-      data-testing={testing ? 'true' : 'false'}
-      data-whatsapp-cs={whatsappCs}
-    >
+    <section class="payment-page" data-order-id={id} data-testing={testing ? 'true' : 'false'} data-whatsapp-cs={whatsappCs}>
       <header class="payment-hero">
         <div>
           <p class="payment-eyebrow">Pembayaran</p>
           <h1>🍜 Selesaikan Pembayaran</h1>
-          <p class="payment-subtitle">Silakan selesaikan pesanan Anda sebelum timer habis.</p>
+          <p class="payment-subtitle">Selesaikan pembayaran sebelum timer habis agar pesanan langsung diproses.</p>
         </div>
         <div class="payment-badges">
-          <span class="payment-badge payment-badge-muted">No. Pesanan: <strong id="orderNumber">#{id}</strong></span>
+          <span class="payment-badge payment-badge-muted">Order ID: <strong id="orderNumber">{orderBadge}</strong></span>
           <span class="payment-badge payment-badge-warning" id="statusBadge">Menunggu pembayaran</span>
         </div>
       </header>
 
       <div class="payment-announcement" role="note" aria-label="Informasi pembayaran">
         <span class="payment-announcement-icon">ℹ️</span>
-        <p>
-          Saat ini kami menyarankan pembayaran lewat QRIS untuk proses yang lebih cepat. Metode lain tetap tersedia melalui Midtrans,
-          tetapi tampilan utama difokuskan ke QR code agar lebih mudah dipindai.
-        </p>
+        <p>Saat ini pembayaran hanya QRIS. Metode lain sedang maintenance.</p>
       </div>
 
       <section class="payment-grid">
@@ -46,9 +41,9 @@ const testing = Astro.url.searchParams.get('testing') === '1'
           <article class="payment-card">
             <div class="payment-card-header">
               <h2>Informasi Pesanan</h2>
-              <span class="payment-mini-badge" id="paymentMethodTag">QRIS / Midtrans</span>
+              <span class="payment-mini-badge" id="paymentMethodTag">QRIS</span>
             </div>
-            <div class="payment-info-grid" id="orderInfoGrid">
+            <div class="payment-info-grid">
               <div class="payment-info-item">
                 <span>Nomor Pesanan</span>
                 <strong id="infoOrderNumber">-</strong>
@@ -66,7 +61,7 @@ const testing = Astro.url.searchParams.get('testing') === '1'
                 <strong id="infoTime">-</strong>
               </div>
             </div>
-            <div class="payment-order-meta" id="orderMeta">
+            <div class="payment-order-meta">
               <p><strong>Tipe Pesanan:</strong> <span id="infoType">-</span></p>
               <p><strong>Nama Customer:</strong> <span id="infoCustomer">-</span></p>
             </div>
@@ -74,8 +69,8 @@ const testing = Astro.url.searchParams.get('testing') === '1'
 
           <article class="payment-card">
             <div class="payment-card-header">
-              <h2>Detail Menu</h2>
-              <span class="payment-mini-note">Ringkasan pesanan</span>
+              <h2>Detail Pesanan</h2>
+              <span class="payment-mini-note">Nama, jumlah, harga</span>
             </div>
             <div class="payment-table-wrap">
               <table class="payment-table">
@@ -88,7 +83,7 @@ const testing = Astro.url.searchParams.get('testing') === '1'
                 </thead>
                 <tbody id="menuTable">
                   <tr>
-                    <td colspan="3" class="payment-empty-cell">Memuat detail menu...</td>
+                    <td colspan="3" class="payment-empty-cell">Memuat detail pesanan...</td>
                   </tr>
                 </tbody>
               </table>
@@ -108,7 +103,7 @@ const testing = Astro.url.searchParams.get('testing') === '1'
           <article class="payment-card">
             <div class="payment-card-header">
               <h2>Metode Pembayaran</h2>
-              <span class="payment-mini-note">Highlight metode aktif</span>
+              <span class="payment-mini-note">QRIS aktif</span>
             </div>
             <div class="payment-method-grid" id="methodGrid"></div>
           </article>
@@ -116,9 +111,13 @@ const testing = Astro.url.searchParams.get('testing') === '1'
           <article class="payment-card">
             <div class="payment-card-header">
               <h2>Instruksi Pembayaran</h2>
-              <span class="payment-mini-note">Ikuti langkah berikut</span>
+              <span class="payment-mini-note">Langkah mudah</span>
             </div>
-            <ol class="payment-steps" id="paymentSteps"></ol>
+            <ol class="payment-steps">
+              <li>Scan QR code di samping menggunakan GoPay, OVO, Dana, atau aplikasi QRIS lainnya.</li>
+              <li>Pastikan nominal yang tampil sesuai total pesanan.</li>
+              <li>Setelah berhasil, status akan otomatis berubah dan Anda akan diarahkan ke halaman sukses.</li>
+            </ol>
           </article>
 
           <article class="payment-card">
@@ -127,8 +126,8 @@ const testing = Astro.url.searchParams.get('testing') === '1'
               <span class="payment-mini-note">Cepat dan praktis</span>
             </div>
             <div class="payment-actions">
-              <a class="payment-button payment-button-primary" id="whatsappButton" href="#" target="_blank" rel="noreferrer">💬 Hubungi Kasir</a>
               <button class="payment-button payment-button-secondary" id="refreshButton" type="button">🔄 Cek Status Pembayaran</button>
+              <a class="payment-button payment-button-primary" id="whatsappButton" href="#" target="_blank" rel="noreferrer">💬 Hubungi Kasir</a>
             </div>
           </article>
         </div>
@@ -144,10 +143,8 @@ const testing = Astro.url.searchParams.get('testing') === '1'
                 <p class="payment-empty-state">Memuat QR code...</p>
               </div>
             </div>
-            <p class="payment-qr-caption">
-              Scan QR code di atas menggunakan GoPay, OVO, Dana, atau aplikasi QRIS lainnya.
-            </p>
-            <div class="payment-qr-actions" id="qrActions"></div>
+            <p class="payment-qr-caption">Scan QR code di atas menggunakan GoPay, OVO, Dana, atau aplikasi QRIS lainnya.</p>
+            <div class="payment-qr-actions" id="timeoutArea"></div>
           </article>
 
           <article class="payment-card">
@@ -156,10 +153,7 @@ const testing = Astro.url.searchParams.get('testing') === '1'
             </div>
             <div class="payment-announcement payment-announcement-block">
               <span class="payment-announcement-icon">ℹ️</span>
-              <p>
-                Metode pembayaran lain tetap aktif di Midtrans, tetapi jika QR belum muncul, tunggu beberapa detik lalu klik
-                <strong>Cek Status Pembayaran</strong>.
-              </p>
+              <p>Saat ini pembayaran hanya QRIS. Metode lain sedang maintenance.</p>
             </div>
           </article>
 
@@ -168,7 +162,6 @@ const testing = Astro.url.searchParams.get('testing') === '1'
               <h2>Catatan</h2>
             </div>
             <p class="payment-helper" id="noteText">Pesanan Anda sedang menunggu pembayaran.</p>
-            <div id="timeoutArea"></div>
           </article>
         </aside>
       </section>
@@ -179,8 +172,11 @@ const testing = Astro.url.searchParams.get('testing') === '1'
 
   <script is:inline type="module">
     const ORDER_ID = ${JSON.stringify(id)}
+    const ORDER_BADGE = ${JSON.stringify(orderBadge)}
     const TESTING = ${JSON.stringify(testing)}
     const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
+    const MIDTRANS_CLIENT_KEY = ${JSON.stringify(midtransClientKey)}
+    const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(midtransProduction)}
 
     const money = new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -188,39 +184,48 @@ const testing = Astro.url.searchParams.get('testing') === '1'
       maximumFractionDigits: 0,
     })
 
-    const countdownEl = document.getElementById('countdown')
-    const sideTimerEl = document.getElementById('sideTimer')
-    const timerHelperEl = document.getElementById('timerHelper')
-    const statusBadgeEl = document.getElementById('statusBadge')
-    const paymentMethodTagEl = document.getElementById('paymentMethodTag')
-    const infoOrderNumberEl = document.getElementById('infoOrderNumber')
-    const infoTotalEl = document.getElementById('infoTotal')
-    const infoStatusEl = document.getElementById('infoStatus')
-    const infoTimeEl = document.getElementById('infoTime')
-    const infoTypeEl = document.getElementById('infoType')
-    const infoCustomerEl = document.getElementById('infoCustomer')
-    const menuTableEl = document.getElementById('menuTable')
-    const subtotalValueEl = document.getElementById('subtotalValue')
-    const totalValueEl = document.getElementById('totalValue')
-    const methodGridEl = document.getElementById('methodGrid')
-    const paymentStepsEl = document.getElementById('paymentSteps')
-    const qrStageEl = document.getElementById('qrStage')
-    const qrActionsEl = document.getElementById('qrActions')
-    const noteTextEl = document.getElementById('noteText')
-    const timeoutAreaEl = document.getElementById('timeoutArea')
-    const whatsappButtonEl = document.getElementById('whatsappButton')
-    const refreshButtonEl = document.getElementById('refreshButton')
+    const state = {
+      deadline: Date.now() + 15 * 60 * 1000,
+      timerId: null,
+      pollId: null,
+      timedOut: false,
+      redirecting: false,
+      retries404: 0,
+    }
 
-    const paymentMethods = [
+    const els = {
+      countdown: document.getElementById('countdown'),
+      sideTimer: document.getElementById('sideTimer'),
+      timerHelper: document.getElementById('timerHelper'),
+      statusBadge: document.getElementById('statusBadge'),
+      paymentMethodTag: document.getElementById('paymentMethodTag'),
+      infoOrderNumber: document.getElementById('infoOrderNumber'),
+      infoTotal: document.getElementById('infoTotal'),
+      infoStatus: document.getElementById('infoStatus'),
+      infoTime: document.getElementById('infoTime'),
+      infoType: document.getElementById('infoType'),
+      infoCustomer: document.getElementById('infoCustomer'),
+      menuTable: document.getElementById('menuTable'),
+      subtotalValue: document.getElementById('subtotalValue'),
+      totalValue: document.getElementById('totalValue'),
+      methodGrid: document.getElementById('methodGrid'),
+      qrStage: document.getElementById('qrStage'),
+      timeoutArea: document.getElementById('timeoutArea'),
+      noteText: document.getElementById('noteText'),
+      whatsappButton: document.getElementById('whatsappButton'),
+      refreshButton: document.getElementById('refreshButton'),
+    }
+
+    const methods = [
       {
         key: 'qris',
         icon: '📱',
         title: 'QRIS',
         desc: 'Scan QR Code dengan GoPay, OVO, Dana, dll',
         steps: [
-          'Tunggu QR code tampil sempurna di halaman ini.',
-          'Buka aplikasi pembayaran Anda dan pilih menu QRIS.',
-          'Scan QR code, lalu konfirmasi nominal pembayaran.',
+          'Scan QR code di atas menggunakan GoPay, OVO, Dana, atau aplikasi QRIS lainnya.',
+          'Pastikan nominal sesuai total pesanan.',
+          'Tunggu status berubah otomatis setelah pembayaran berhasil.',
         ],
       },
       {
@@ -228,45 +233,23 @@ const testing = Astro.url.searchParams.get('testing') === '1'
         icon: '💳',
         title: 'GoPay',
         desc: 'Bayar dengan GoPay',
-        steps: [
-          'Buka aplikasi GoPay pada ponsel Anda.',
-          'Ikuti instruksi pembayaran yang muncul dari Midtrans.',
-          'Selesaikan pembayaran sebelum waktu habis.',
-        ],
+        steps: ['Buka aplikasi GoPay.', 'Konfirmasi transaksi yang muncul.', 'Tunggu status pembelian selesai.'],
       },
       {
         key: 'shopeepay',
         icon: '🛍️',
         title: 'ShopeePay',
         desc: 'Bayar dengan ShopeePay',
-        steps: [
-          'Buka aplikasi Shopee dan masuk ke ShopeePay.',
-          'Pilih bayar pada notifikasi atau kode pembayaran.',
-          'Pastikan saldo cukup lalu konfirmasi transaksi.',
-        ],
+        steps: ['Buka ShopeePay.', 'Lakukan konfirmasi pembayaran.', 'Selesaikan transaksi sebelum waktu habis.'],
       },
       {
         key: 'bank_transfer',
         icon: '🏦',
         title: 'Bank Transfer',
         desc: 'Transfer Bank BCA / BNI / BRI / Mandiri',
-        steps: [
-          'Gunakan instruksi transfer bank yang tersedia di Midtrans.',
-          'Salin nomor virtual account atau rekening tujuan.',
-          'Lakukan transfer sesuai nominal pesanan.',
-        ],
+        steps: ['Gunakan virtual account atau instruksi transfer.', 'Transfer sesuai nominal.', 'Simpan bukti transfer jika dibutuhkan.'],
       },
     ]
-
-    const state = {
-      deadline: Date.now() + 15 * 60 * 1000,
-      timerId: null,
-      pollId: null,
-      timedOut: false,
-      qrLoaded: false,
-      lastStatus: null,
-      loadCount: 0,
-    }
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -279,7 +262,6 @@ const testing = Astro.url.searchParams.get('testing') === '1'
 
     function formatDateTime(value) {
       if (!value) return '-'
-      const date = new Date(value)
       return new Intl.DateTimeFormat('id-ID', {
         weekday: 'long',
         day: '2-digit',
@@ -287,57 +269,32 @@ const testing = Astro.url.searchParams.get('testing') === '1'
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-      }).format(date)
+      }).format(new Date(value))
     }
 
     function formatCountdown(ms) {
-      const safe = Math.max(0, ms)
-      const totalSeconds = Math.floor(safe / 1000)
-      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
-      const seconds = String(totalSeconds % 60).padStart(2, '0')
+      const total = Math.max(0, Math.floor(ms / 1000))
+      const minutes = String(Math.floor(total / 60)).padStart(2, '0')
+      const seconds = String(total % 60).padStart(2, '0')
       return `${minutes}:${seconds}`
     }
 
-    function normalizePhone(phone) {
-      return String(phone || '').replace(/[^\d]/g, '')
+    function normalizePhone(value) {
+      return String(value || '').replace(/[^\d]/g, '')
     }
 
-    function whatsappLink(message) {
+    function waLink(message) {
       const phone = normalizePhone(WHATSAPP_CS)
       if (!phone) return '#'
       return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
     }
 
     function setWhatsappButton(orderId) {
-      const message = `Halo Kasir, saya ingin konfirmasi pembayaran untuk pesanan #${orderId}.`
-      whatsappButtonEl.href = whatsappLink(message)
-    }
-
-    function renderMethodGrid(activeMethod = 'qris') {
-      const cards = paymentMethods.map((method) => {
-        const active = method.key === activeMethod
-        return `
-          <article class="method-card ${active ? 'is-active' : ''}">
-            <div class="method-icon">${method.icon}</div>
-            <div>
-              <strong>${escapeHtml(method.title)}</strong>
-              <p>${escapeHtml(method.desc)}</p>
-            </div>
-          </article>
-        `
-      }).join('')
-
-      methodGridEl.innerHTML = cards
-    }
-
-    function setPaymentSteps(method = 'qris') {
-      const selected = paymentMethods.find((item) => item.key === method) || paymentMethods[0]
-      paymentStepsEl.innerHTML = selected.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')
-      paymentMethodTagEl.innerText = `${selected.icon} ${selected.title}`
+      els.whatsappButton.href = waLink(`Halo Kasir, saya ingin konfirmasi pembayaran untuk pesanan ${ORDER_BADGE || `#${orderId}`}.`)
     }
 
     function setStatusBadge(status) {
-      const normalized = (status || 'pending').toLowerCase()
+      const normalized = String(status || 'pending').toLowerCase()
       const map = {
         pending: { label: 'Menunggu pembayaran', className: 'status-pending' },
         paid: { label: 'Pembayaran diterima', className: 'status-success' },
@@ -347,29 +304,40 @@ const testing = Astro.url.searchParams.get('testing') === '1'
         cancel: { label: 'Pesanan dibatalkan', className: 'status-danger' },
         expired: { label: 'Waktu pembayaran habis', className: 'status-danger' },
       }
-      const state = map[normalized] || map.pending
-      statusBadgeEl.className = `payment-badge ${state.className}`
-      statusBadgeEl.innerText = state.label
-      infoStatusEl.innerText = state.label
-      state.lastStatus = normalized
+      const selected = map[normalized] || map.pending
+      els.statusBadge.className = `payment-badge ${selected.className}`
+      els.statusBadge.innerText = selected.label
+      els.infoStatus.innerText = selected.label
     }
 
-    function renderMenuItems(items = []) {
+    function renderMethods(activeKey = 'qris') {
+      els.methodGrid.innerHTML = methods.map((item) => `
+        <article class="method-card ${item.key === activeKey ? 'is-active' : ''}">
+          <div class="method-icon">${item.icon}</div>
+          <div>
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.desc)}</p>
+          </div>
+        </article>
+      `).join('')
+      els.paymentMethodTag.innerText = methods.find((item) => item.key === activeKey)?.title || 'QRIS'
+    }
+
+    function renderMenuRows(items = []) {
       if (!items.length) {
-        menuTableEl.innerHTML = '<tr><td colspan="3" class="payment-empty-cell">Detail menu belum tersedia.</td></tr>'
+        els.menuTable.innerHTML = '<tr><td colspan="3" class="payment-empty-cell">Detail menu belum tersedia.</td></tr>'
         return
       }
 
-      menuTableEl.innerHTML = items.map((item) => {
+      els.menuTable.innerHTML = items.map((item) => {
         const nama = item.menu?.nama || item.nama_menu || `Menu #${item.id_menu}`
         const qty = Number(item.jumlah || 0)
         const hargaSatuan = Number(item.harga_saat_pesan ?? item.harga ?? 0)
-        const totalItem = hargaSatuan * qty
         return `
           <tr>
             <td>${escapeHtml(nama)}</td>
             <td>${qty}</td>
-            <td>${money.format(totalItem)}</td>
+            <td>${money.format(hargaSatuan * qty)}</td>
           </tr>
         `
       }).join('')
@@ -377,103 +345,48 @@ const testing = Astro.url.searchParams.get('testing') === '1'
 
     function buildQrSource(data) {
       const payment = data?.pembayaran || {}
-      const midtrans = data?.midtrans || {}
       const candidates = [
-        payment.snap_token && `snap-token:${payment.snap_token}`,
+        payment.qr_code,
         payment.qr_url,
         payment.redirect_url,
-        midtrans.qr_url,
-        midtrans.redirect_url,
+        data?.midtrans?.qr_url,
+        data?.midtrans?.redirect_url,
       ].filter(Boolean)
-
       return candidates[0] || null
     }
 
-    function loadSnapScript() {
-      return new Promise((resolve, reject) => {
-        if (window.snap) return resolve(window.snap)
-
-        const existing = document.querySelector('script[data-midtrans-snap="true"]')
-        if (existing) {
-          existing.addEventListener('load', () => resolve(window.snap), { once: true })
-          existing.addEventListener('error', reject, { once: true })
-          return
-        }
-
-        const script = document.createElement('script')
-        script.dataset.midtransSnap = 'true'
-        script.async = true
-        script.src = import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION === 'true'
-          ? 'https://app.midtrans.com/snap/snap.js'
-          : 'https://app.sandbox.midtrans.com/snap/snap.js'
-        script.setAttribute('data-client-key', import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '')
-        script.onload = () => resolve(window.snap)
-        script.onerror = reject
-        document.head.appendChild(script)
-      })
-    }
-
-    function renderQrFallback(source) {
-      if (!source) {
-        qrStageEl.innerHTML = '<p class="payment-empty-state">Menunggu QR code dari Midtrans...</p>'
+    function renderQr(source, snapToken) {
+      if (source) {
+        els.qrStage.innerHTML = `
+          <img class="payment-qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(source)}" alt="QR code pembayaran" width="300" height="300" />
+        `
         return
       }
 
-      if (source.startsWith('snap-token:')) {
-        const token = source.replace('snap-token:', '')
-        qrStageEl.innerHTML = '<p class="payment-empty-state">Memuat tampilan pembayaran...</p>'
-        loadSnapScript()
-          .then(() => {
-            if (!window.snap?.embed) {
-              qrStageEl.innerHTML = '<p class="payment-empty-state">Midtrans Snap tidak tersedia.</p>'
-              return
-            }
-            qrStageEl.innerHTML = '<div id="snap-embed"></div>'
-            window.snap.embed(token, {
-              embedId: 'snap-embed',
-              onSuccess: () => {
-                noteTextEl.innerText = 'Pembayaran berhasil diproses.'
-              },
-              onPending: () => {
-                noteTextEl.innerText = 'Menunggu konfirmasi pembayaran.'
-              },
-              onError: () => {
-                noteTextEl.innerText = 'Gagal memuat tampilan pembayaran Midtrans.'
-              },
-              onClose: () => {
-                noteTextEl.innerText = 'Tampilan pembayaran ditutup.'
-              },
-            })
-          })
-          .catch(() => {
-            qrStageEl.innerHTML = '<p class="payment-empty-state">Gagal memuat Snap Midtrans.</p>'
-          })
+      if (snapToken && window.snap?.embed) {
+        els.qrStage.innerHTML = '<div id="snap-embed"></div>'
+        window.snap.embed(snapToken, {
+          embedId: 'snap-embed',
+          onPending: () => { els.noteText.innerText = 'Menunggu konfirmasi pembayaran.' },
+          onSuccess: () => { els.noteText.innerText = 'Pembayaran berhasil diproses.' },
+          onError: () => { els.noteText.innerText = 'Midtrans sedang memuat tampilan pembayaran.' },
+        })
         return
       }
 
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(source)}`
-      qrStageEl.innerHTML = `
-        <img
-          class="payment-qr-image"
-          src="${qrUrl}"
-          alt="QR code pembayaran"
-          width="300"
-          height="300"
-        />
-      `
+      els.qrStage.innerHTML = '<p class="payment-empty-state">Menunggu QR code dari Midtrans...</p>'
     }
 
     function renderTimeoutAction(orderId) {
-      const message = `Halo Kasir, waktu pembayaran pesanan #${orderId} sudah habis. Mohon bantu batalkan atau bantu lanjutkan prosesnya.`
-      timeoutAreaEl.innerHTML = `
-        <a class="payment-button payment-button-danger" href="${whatsappLink(message)}" target="_blank" rel="noreferrer">
+      els.timeoutArea.innerHTML = `
+        <a class="payment-button payment-button-danger" href="${waLink(`Halo Kasir, waktu pembayaran pesanan ${ORDER_BADGE || `#${orderId}`} sudah habis. Mohon bantu batalkan pesanan.`)}" target="_blank" rel="noreferrer">
           Batalkan Pesanan
         </a>
       `
     }
 
     function clearTimeoutAction() {
-      timeoutAreaEl.innerHTML = ''
+      els.timeoutArea.innerHTML = ''
     }
 
     function stopTimers() {
@@ -481,21 +394,24 @@ const testing = Astro.url.searchParams.get('testing') === '1'
       if (state.pollId) window.clearInterval(state.pollId)
     }
 
-    function setDeadlineFromOrder(createdAt) {
-      const base = createdAt ? new Date(createdAt).getTime() : Date.now()
-      state.deadline = base + 15 * 60 * 1000
+    function setDeadline(createdAt) {
+      state.deadline = (createdAt ? new Date(createdAt).getTime() : Date.now()) + 15 * 60 * 1000
     }
 
     function tickCountdown() {
       const remaining = state.deadline - Date.now()
       const formatted = formatCountdown(remaining)
-      countdownEl.innerText = formatted
-      sideTimerEl.innerText = formatted
+      els.countdown.innerText = formatted
+      els.sideTimer.innerText = formatted
+
+      const urgent = remaining > 0 && remaining < 3 * 60 * 1000
+      els.countdown.classList.toggle('is-urgent', urgent)
+      els.sideTimer.classList.toggle('is-urgent', urgent)
 
       if (remaining <= 0 && !state.timedOut) {
         state.timedOut = true
-        timerHelperEl.innerText = 'Waktu pembayaran habis.'
-        noteTextEl.innerText = 'Waktu habis, silakan hubungi kasir.'
+        els.timerHelper.innerText = 'Waktu pembayaran habis.'
+        els.noteText.innerText = 'Waktu habis, silakan hubungi kasir.'
         renderTimeoutAction(ORDER_ID)
         stopTimers()
       }
@@ -504,45 +420,39 @@ const testing = Astro.url.searchParams.get('testing') === '1'
     function renderOrder(data) {
       const pesanan = data?.pesanan
       const pembayaran = data?.pembayaran || {}
-
       if (!pesanan) {
-        qrStageEl.innerHTML = '<p class="payment-empty-state">Pesanan tidak ditemukan.</p>'
-        noteTextEl.innerText = 'Data pesanan belum tersedia.'
-        setStatusBadge('pending')
+        els.qrStage.innerHTML = '<p class="payment-empty-state">Pesanan tidak ditemukan.</p>'
+        els.noteText.innerText = 'Data pesanan belum tersedia.'
         return
       }
 
-      setDeadlineFromOrder(pesanan.created_at)
-      infoOrderNumberEl.innerText = `#${pesanan.id}`
-      infoTotalEl.innerText = money.format(Number(pesanan.total || 0))
-      infoTimeEl.innerText = formatDateTime(pesanan.created_at)
-      infoCustomerEl.innerText = pesanan.customer_name || '-'
-      infoTypeEl.innerText = pesanan.tipe_pesanan === 'dine_in'
+      setDeadline(pesanan.created_at)
+      els.infoOrderNumber.innerText = `#${pesanan.id}`
+      els.infoTotal.innerText = money.format(Number(pesanan.total || 0))
+      els.infoTime.innerText = formatDateTime(pesanan.created_at)
+      els.infoCustomer.innerText = pesanan.customer_name || '-'
+      els.infoType.innerText = pesanan.tipe_pesanan === 'dine_in'
         ? `Dine-in${pesanan.meja?.nomor_meja ? ` (Meja ${pesanan.meja.nomor_meja})` : ''}`
         : pesanan.tipe_pesanan === 'delivery'
           ? 'Delivery'
           : 'Takeaway'
 
-      subtotalValueEl.innerText = money.format(Number(pesanan.subtotal || 0))
-      totalValueEl.innerText = money.format(Number(pesanan.total || 0))
-      renderMenuItems(pesanan.detail_pesanan || [])
-
-      const statusValue = pembayaran.status || pesanan.status || 'pending'
-      setStatusBadge(statusValue)
-
-      const activeMethod = pembayaran.metode === 'midtrans' ? 'qris' : (pembayaran.metode || 'qris')
-      renderMethodGrid(activeMethod)
-      setPaymentSteps(activeMethod)
+      setStatusBadge(pembayaran.status || pesanan.status || 'pending')
+      renderMethods(pembayaran.metode === 'midtrans' ? 'qris' : (pembayaran.metode || 'qris'))
+      renderMenuRows(pesanan.detail_pesanan || [])
       setWhatsappButton(pesanan.id)
 
       const qrSource = buildQrSource(data)
-      renderQrFallback(qrSource)
+      renderQr(qrSource, pembayaran.snap_token)
 
-      if (statusValue === 'paid' || statusValue === 'settlement' || statusValue === 'capture') {
+      if (['paid', 'settlement', 'capture'].includes(String(pembayaran.status || '').toLowerCase())) {
         stopTimers()
         clearTimeoutAction()
-        timerHelperEl.innerText = 'Pembayaran sudah berhasil diterima.'
-        noteTextEl.innerText = 'Terima kasih, pesanan Anda sedang kami proses.'
+        els.timerHelper.innerText = 'Pembayaran sudah berhasil diterima.'
+        els.noteText.innerText = 'Terima kasih, pesanan Anda sedang kami proses.'
+        window.setTimeout(() => {
+          window.location.href = `/pembayaran/sukses/${pesanan.id}`
+        }, 1200)
         return
       }
 
@@ -553,9 +463,29 @@ const testing = Astro.url.searchParams.get('testing') === '1'
       }
     }
 
+    function loadSnapScript() {
+      if (window.snap) return Promise.resolve()
+      return new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-midtrans-snap="true"]')
+        if (existing) {
+          existing.addEventListener('load', resolve, { once: true })
+          existing.addEventListener('error', reject, { once: true })
+          return
+        }
+
+        const script = document.createElement('script')
+        script.dataset.midtransSnap = 'true'
+        script.async = true
+        script.src = MIDTRANS_IS_PRODUCTION ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js'
+        script.setAttribute('data-client-key', MIDTRANS_CLIENT_KEY)
+        script.onload = resolve
+        script.onerror = reject
+        document.head.appendChild(script)
+      })
+    }
+
     async function refreshStatus(manual = false) {
       if (state.timedOut && !manual) return
-
       try {
         const url = new URL('/api/cek-status', window.location.origin)
         url.searchParams.set('id', ORDER_ID)
@@ -563,49 +493,44 @@ const testing = Astro.url.searchParams.get('testing') === '1'
 
         const response = await fetch(url.toString(), { cache: 'no-store' })
         const data = await response.json()
-        state.loadCount += 1
-        state.lastStatus = data?.status || data?.pembayaran?.status || null
 
         if (response.status === 404 || data?.not_found) {
+          state.retries404 += 1
           if (data?.pesanan) {
             renderOrder({
               ...data,
-              pembayaran: data.pembayaran || {
-                status: 'pending',
-                metode: 'midtrans',
-              },
+              pembayaran: data.pembayaran || { status: 'pending', metode: 'midtrans' },
             })
           }
-          if (manual) {
-            noteTextEl.innerText = 'Status transaksi belum ditemukan. Sistem akan mencoba lagi.'
-          }
-          if (state.loadCount >= 10 && !state.lastStatus) {
-            noteTextEl.innerText = 'Transaksi masih belum ditemukan di Midtrans. Status dianggap pending.'
+          if (state.retries404 >= 10) {
+            els.noteText.innerText = 'Transaksi belum ditemukan di Midtrans. Status dianggap pending.'
           }
           return
         }
 
         renderOrder(data)
       } catch (error) {
-        noteTextEl.innerText = 'Gagal memuat status pembayaran. Silakan coba lagi.'
         console.error(error)
+        els.noteText.innerText = 'Gagal memuat status pembayaran. Silakan coba lagi.'
       }
     }
 
-    refreshButtonEl.addEventListener('click', () => refreshStatus(true))
+    els.refreshButton.addEventListener('click', () => refreshStatus(true))
 
     if (TESTING) {
-      noteTextEl.innerText = 'Mode testing aktif. Status pembayaran akan langsung disimulasikan.'
+      els.noteText.innerText = 'Mode testing aktif.'
     }
 
     state.timerId = window.setInterval(tickCountdown, 1000)
+    state.pollId = window.setInterval(() => refreshStatus(false), 5000)
     tickCountdown()
 
-    state.pollId = window.setInterval(() => {
-      refreshStatus(false)
-    }, 5000)
-
-    refreshStatus(true)
+    if (TESTING) {
+      refreshStatus(true)
+    } else {
+      loadSnapScript().catch(() => {})
+      refreshStatus(true)
+    }
   </script>
 
   <style>
@@ -617,8 +542,8 @@ const testing = Astro.url.searchParams.get('testing') === '1'
       min-height: 100vh;
       padding: 2rem 1rem 3rem;
       background:
-        radial-gradient(circle at top left, rgba(231, 111, 81, 0.14), transparent 28%),
-        radial-gradient(circle at top right, rgba(42, 157, 143, 0.12), transparent 24%),
+        radial-gradient(circle at top left, rgba(231, 111, 81, .14), transparent 28%),
+        radial-gradient(circle at top right, rgba(42, 157, 143, .12), transparent 24%),
         #fdf8f5;
     }
 
@@ -655,7 +580,7 @@ const testing = Astro.url.searchParams.get('testing') === '1'
     .payment-subtitle {
       margin: .6rem 0 0;
       color: rgba(43, 31, 26, .72);
-      max-width: 56ch;
+      max-width: 58ch;
     }
 
     .payment-badges {
@@ -688,11 +613,13 @@ const testing = Astro.url.searchParams.get('testing') === '1'
     .payment-badge-warning {
       background: #fef3c7;
       color: #92400e;
+      animation: paymentPulse 1.8s ease-in-out infinite;
     }
 
     .status-pending {
       background: #fef3c7;
       color: #92400e;
+      animation: paymentPulse 1.8s ease-in-out infinite;
     }
 
     .status-success {
@@ -820,6 +747,12 @@ const testing = Astro.url.searchParams.get('testing') === '1'
       font-weight: 900;
       letter-spacing: .04em;
       color: #2b1f1a;
+    }
+
+    .payment-countdown.is-urgent,
+    .payment-qr-timer.is-urgent {
+      color: #dc2626;
+      animation: urgentPulse 1s ease-in-out infinite;
     }
 
     .payment-helper {
@@ -1051,7 +984,6 @@ const testing = Astro.url.searchParams.get('testing') === '1'
       border-radius: 1rem;
       background: #fff;
       border: 2px dashed rgba(231, 111, 81, .45);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
       overflow: hidden;
     }
 
@@ -1086,6 +1018,16 @@ const testing = Astro.url.searchParams.get('testing') === '1'
 
     #snap-embed {
       width: 100%;
+    }
+
+    @keyframes paymentPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+
+    @keyframes urgentPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .72; }
     }
 
     @media (max-width: 980px) {

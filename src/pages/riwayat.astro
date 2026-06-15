@@ -1,0 +1,505 @@
+---
+import Layout from '../layouts/Layout.astro'
+import LoginOTP from '../components/LoginOTP.jsx'
+---
+
+<Layout title="Riwayat Pesanan">
+  <main class="history-page">
+    <section class="history-hero">
+      <div>
+        <p class="eyebrow">Riwayat Customer</p>
+        <h1>Pesanan Anda</h1>
+        <p>Masuk dengan OTP WhatsApp untuk melihat daftar pesanan, detail menu, dan pesan lagi dengan satu klik.</p>
+      </div>
+      <a class="history-home-link" href="/">Kembali ke Menu</a>
+    </section>
+
+    <div class="history-layout">
+      <LoginOTP client:load />
+
+      <section class="history-card">
+        <div class="history-card-header">
+          <div>
+            <p class="eyebrow">Daftar Pesanan</p>
+            <h2>Riwayat Pembelian</h2>
+          </div>
+          <span class="history-badge" id="historyState">Menunggu login</span>
+        </div>
+        <div id="historyList" class="history-list">
+          <p class="history-empty">Silakan login dulu untuk melihat riwayat pesanan.</p>
+        </div>
+      </section>
+
+      <section class="history-card">
+        <div class="history-card-header">
+          <div>
+            <p class="eyebrow">Detail</p>
+            <h2>Detail Pesanan</h2>
+          </div>
+          <span class="history-mini-note">Klik salah satu pesanan</span>
+        </div>
+        <div id="historyDetail" class="history-detail">
+          <p class="history-empty">Belum ada pesanan dipilih.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script is:inline type="module">
+    const SESSION_KEY = 'warung-customer-session'
+    const historyStateEl = document.getElementById('historyState')
+    const historyListEl = document.getElementById('historyList')
+    const historyDetailEl = document.getElementById('historyDetail')
+
+    const money = new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    })
+
+    const statusMap = {
+      menunggu_pembayaran: 'Menunggu pembayaran',
+      diproses: 'Diproses',
+      siap: 'Siap',
+      selesai: 'Selesai',
+      dibatalkan: 'Dibatalkan',
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;')
+    }
+
+    function formatDate(value) {
+      if (!value) return '-'
+      return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      }).format(new Date(value))
+    }
+
+    function normalizePhone(value) {
+      return String(value || '').replace(/[^\d]/g, '')
+    }
+
+    function loadSession() {
+      try {
+        const raw = localStorage.getItem(SESSION_KEY)
+        if (!raw) return null
+        const session = JSON.parse(raw)
+        if (!session?.expires_at || new Date(session.expires_at).getTime() < Date.now()) {
+          localStorage.removeItem(SESSION_KEY)
+          return null
+        }
+        return session
+      } catch {
+        return null
+      }
+    }
+
+    function setEmptyState(message) {
+      historyListEl.innerHTML = `<p class="history-empty">${escapeHtml(message)}</p>`
+    }
+
+    function renderDetail(order) {
+      if (!order) {
+        historyDetailEl.innerHTML = '<p class="history-empty">Belum ada pesanan dipilih.</p>'
+        return
+      }
+
+      const items = order.detail_pesanan || []
+      historyDetailEl.innerHTML = `
+        <div class="history-detail-head">
+          <div>
+            <span class="history-detail-order">#${escapeHtml(order.id)}</span>
+            <h3>${escapeHtml(statusMap[order.status] || order.status || 'Menunggu pembayaran')}</h3>
+          </div>
+          <button class="history-reorder-button" type="button" id="reorderButton">Pesan Lagi</button>
+        </div>
+        <div class="history-detail-meta">
+          <p><strong>Tanggal:</strong> ${escapeHtml(formatDate(order.created_at))}</p>
+          <p><strong>Total:</strong> ${escapeHtml(money.format(Number(order.total || 0)))}</p>
+          <p><strong>Status:</strong> ${escapeHtml(statusMap[order.status] || order.status || '-')}</p>
+        </div>
+        <div class="history-detail-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Menu</th>
+                <th>Jumlah</th>
+                <th>Harga</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map((item) => `
+                <tr>
+                  <td>${escapeHtml(item.menu?.nama || `Menu #${item.id_menu}`)}</td>
+                  <td>${Number(item.jumlah || 0)}</td>
+                  <td>${escapeHtml(money.format(Number(item.harga_saat_pesan || 0) * Number(item.jumlah || 0)))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `
+
+      document.getElementById('reorderButton')?.addEventListener('click', () => {
+        const itemsForCart = items.map((item) => ({
+          id: item.id_menu,
+          nama: item.menu?.nama || `Menu #${item.id_menu}`,
+          harga: Number(item.harga_saat_pesan || 0),
+          jumlah: Number(item.jumlah || 0),
+          stok: 99,
+          catatan: item.catatan_item || '',
+        }))
+
+        localStorage.setItem('cart_warung', JSON.stringify({ items: itemsForCart }))
+        window.dispatchEvent(new Event('warung-cart-updated'))
+        historyStateEl.innerText = 'Pesanan ditambahkan ke keranjang'
+        setTimeout(() => {
+          window.location.href = '/#menu'
+        }, 500)
+      })
+    }
+
+    function renderOrders(orders) {
+      if (!orders.length) {
+        setEmptyState('Belum ada pesanan pada nomor WhatsApp ini.')
+        historyDetailEl.innerHTML = '<p class="history-empty">Belum ada pesanan dipilih.</p>'
+        return
+      }
+
+      historyListEl.innerHTML = orders.map((order, index) => `
+        <button class="history-order-card ${index === 0 ? 'is-active' : ''}" data-order-index="${index}">
+          <div>
+            <span class="history-order-id">#${escapeHtml(order.id)}</span>
+            <strong>${escapeHtml(money.format(Number(order.total || 0)))}</strong>
+          </div>
+          <div>
+            <p>${escapeHtml(statusMap[order.status] || order.status || '-')}</p>
+            <small>${escapeHtml(formatDate(order.created_at))}</small>
+          </div>
+        </button>
+      `).join('')
+
+      const cards = [...historyListEl.querySelectorAll('.history-order-card')]
+      const activate = (index) => {
+        cards.forEach((card, cardIndex) => card.classList.toggle('is-active', cardIndex === index))
+        renderDetail(orders[index])
+      }
+
+      cards.forEach((card) => {
+        card.addEventListener('click', () => activate(Number(card.dataset.orderIndex)))
+      })
+
+      activate(0)
+    }
+
+    async function loadHistory() {
+      const session = loadSession()
+      if (!session) {
+        historyStateEl.innerText = 'Menunggu login'
+        setEmptyState('Silakan login dulu untuk melihat riwayat pesanan.')
+        return
+      }
+
+      historyStateEl.innerText = 'Memuat riwayat...'
+      try {
+        const url = new URL('/api/customer-orders', window.location.origin)
+        url.searchParams.set('phone', normalizePhone(session.phone))
+        url.searchParams.set('token', session.token)
+
+        const response = await fetch(url.toString(), { cache: 'no-store' })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Riwayat gagal dimuat')
+
+        historyStateEl.innerText = `${data.orders.length} pesanan ditemukan`
+        renderOrders(data.orders || [])
+      } catch (error) {
+        historyStateEl.innerText = 'Gagal memuat riwayat'
+        setEmptyState(error.message || 'Riwayat gagal dimuat')
+      }
+    }
+
+    window.addEventListener('customer-session-updated', loadHistory)
+    window.addEventListener('customer-session-cleared', loadHistory)
+
+    loadHistory()
+  </script>
+
+  <style>
+    :global(body) {
+      background: #fdf8f5;
+    }
+
+    .history-page {
+      min-height: 100vh;
+      padding: 2rem 1rem 3rem;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .history-hero {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .history-hero h1,
+    .history-card h2 {
+      margin: 0;
+      color: #2b1f1a;
+    }
+
+    .history-hero p {
+      margin: .5rem 0 0;
+      color: rgba(43, 31, 26, .72);
+      max-width: 62ch;
+    }
+
+    .history-home-link,
+    .history-reorder-button,
+    .otp-link,
+    .otp-form button,
+    .otp-secondary {
+      border: 0;
+      border-radius: .9rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .history-home-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: .9rem 1rem;
+      text-decoration: none;
+      color: #fff;
+      background: #e76f51;
+      box-shadow: 0 14px 26px rgba(231, 111, 81, .18);
+    }
+
+    .history-layout {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .history-card,
+    .otp-card {
+      background: rgba(255, 255, 255, .98);
+      border: 1px solid rgba(43, 31, 26, .08);
+      border-radius: 1rem;
+      padding: 1rem;
+      box-shadow: 0 16px 36px rgba(43, 31, 26, .07);
+    }
+
+    .history-card {
+      grid-column: 2;
+    }
+
+    .otp-card {
+      grid-column: 1;
+      grid-row: 1 / span 2;
+      position: sticky;
+      top: 1rem;
+    }
+
+    .history-card-header,
+    .otp-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: .75rem;
+      align-items: center;
+      margin-bottom: .9rem;
+    }
+
+    .history-badge,
+    .history-mini-note {
+      display: inline-flex;
+      align-items: center;
+      padding: .32rem .7rem;
+      border-radius: 999px;
+      font-size: .82rem;
+      font-weight: 800;
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .history-list {
+      display: grid;
+      gap: .75rem;
+    }
+
+    .history-order-card {
+      width: 100%;
+      display: grid;
+      gap: .45rem;
+      text-align: left;
+      padding: .9rem;
+      border-radius: .95rem;
+      background: #fffaf7;
+      border: 1px solid rgba(43, 31, 26, .08);
+    }
+
+    .history-order-card.is-active {
+      border-color: rgba(231, 111, 81, .45);
+      box-shadow: 0 14px 28px rgba(231, 111, 81, .11);
+      background: rgba(231, 111, 81, .08);
+    }
+
+    .history-order-card strong,
+    .history-order-card p {
+      display: block;
+      margin: 0;
+      color: #2b1f1a;
+    }
+
+    .history-order-card p,
+    .history-order-card small,
+    .history-empty {
+      color: rgba(43, 31, 26, .68);
+    }
+
+    .history-empty {
+      margin: 0;
+      padding: .75rem 0;
+    }
+
+    .history-detail-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      margin-bottom: .9rem;
+    }
+
+    .history-detail-order {
+      display: inline-flex;
+      margin-bottom: .35rem;
+      color: #e76f51;
+      font-weight: 900;
+    }
+
+    .history-detail-meta {
+      display: grid;
+      gap: .35rem;
+      margin-bottom: .9rem;
+    }
+
+    .history-detail-meta p {
+      margin: 0;
+      color: rgba(43, 31, 26, .82);
+    }
+
+    .history-detail-table {
+      overflow-x: auto;
+      border: 1px solid rgba(43, 31, 26, .08);
+      border-radius: .95rem;
+    }
+
+    .history-detail-table table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 420px;
+    }
+
+    .history-detail-table th,
+    .history-detail-table td {
+      padding: .8rem .85rem;
+      border-bottom: 1px solid rgba(43, 31, 26, .08);
+      text-align: left;
+    }
+
+    .history-detail-table th {
+      background: #fff7f2;
+    }
+
+    .history-reorder-button {
+      padding: .9rem 1rem;
+      color: #fff;
+      background: #25d366;
+      box-shadow: 0 14px 26px rgba(37, 211, 102, .22);
+    }
+
+    .otp-card h2 {
+      margin: 0;
+      color: #2b1f1a;
+    }
+
+    .otp-message {
+      margin: 0 0 .9rem;
+      padding: .8rem .9rem;
+      border-radius: .9rem;
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .otp-form,
+    .otp-verified {
+      display: grid;
+      gap: .85rem;
+    }
+
+    .otp-form label {
+      display: grid;
+      gap: .35rem;
+      color: rgba(43, 31, 26, .82);
+      font-weight: 700;
+    }
+
+    .otp-form input {
+      width: 100%;
+      border: 1px solid rgba(43, 31, 26, .14);
+      border-radius: .85rem;
+      padding: .95rem 1rem;
+    }
+
+    .otp-form button,
+    .otp-secondary,
+    .otp-link {
+      padding: .9rem 1rem;
+    }
+
+    .otp-form button {
+      color: #fff;
+      background: #e76f51;
+    }
+
+    .otp-actions {
+      display: grid;
+      gap: .65rem;
+    }
+
+    .otp-secondary,
+    .otp-link {
+      background: #fff;
+      color: #2b1f1a;
+      border: 1px solid rgba(43, 31, 26, .12);
+      text-decoration: none;
+    }
+
+    @media (max-width: 980px) {
+      .history-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .history-card,
+      .otp-card {
+        grid-column: auto;
+        grid-row: auto;
+        position: static;
+      }
+    }
+  </style>
+</Layout>
