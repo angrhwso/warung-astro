@@ -82,6 +82,9 @@ const snapToken = pembayaran?.snap_token || ''
             <div class="flex justify-center">
               <PaymentCountdown client:load createdAt={createdAt} />
             </div>
+            <p class="mt-4 text-center text-sm font-semibold text-slate-600">
+              Sisa waktu: <span data-countdown class="font-black text-[#2A9D8F]">15:00</span>
+            </p>
             <p class="mt-4 text-center text-sm text-slate-600">Timer berdetak halus. Hijau saat aman, kuning saat mendekati batas, merah saat hampir habis.</p>
           </article>
 
@@ -153,35 +156,59 @@ const snapToken = pembayaran?.snap_token || ''
                 <span class="mt-1 block text-xs leading-5 text-slate-600">Instruksi pembayaran muncul via Midtrans Snap.</span>
               </div>
             </div>
+
+            <div class="mt-4 rounded-2xl border border-[#e76f51]/15 bg-[#fff7f2] p-4">
+              <div class="flex items-start gap-3">
+                <span class="grid h-9 w-9 flex-none place-items-center rounded-full bg-[#e76f51] text-white">🏦</span>
+                <div>
+                  <strong class="block text-sm text-slate-900">Transfer bank aktif</strong>
+                  <p class="m-0 text-xs leading-5 text-slate-600">BCA, BNI, BRI, dan Mandiri akan muncul di widget Midtrans di bawah.</p>
+                </div>
+              </div>
+            </div>
           </article>
 
           <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
             <div class="mb-4 text-center">
               <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Transfer Bank</p>
-              <h2 class="mt-1 text-xl font-black text-slate-900">Buka instruksi pembayaran</h2>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Instruksi pembayaran</h2>
             </div>
 
             <div class="rounded-[1.25rem] border-2 border-dashed border-[#e76f51] bg-white p-4 shadow-sm">
+              <div id="snapEmbed" class="min-h-[320px] rounded-2xl bg-white p-2">
+                <div class="flex h-[320px] items-center justify-center text-sm text-slate-500">Memuat instruksi transfer bank...</div>
+              </div>
+
+              <div class="mt-4 rounded-2xl bg-[#FDF8F5] p-4 ring-1 ring-slate-200">
+                <div class="flex items-start gap-3">
+                  <span class="grid h-9 w-9 flex-none place-items-center rounded-full bg-[#2A9D8F] text-white">1</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">Pilih bank</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">BCA, BNI, BRI, atau Mandiri akan muncul di widget pembayaran.</p>
+                  </div>
+                </div>
+                <div class="mt-3 flex items-start gap-3">
+                  <span class="grid h-9 w-9 flex-none place-items-center rounded-full bg-[#e76f51] text-white">2</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">Ikuti instruksi transfer</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">Salin kode VA atau rekening yang tampil, lalu bayar sesuai nominal.</p>
+                  </div>
+                </div>
+                <div class="mt-3 flex items-start gap-3">
+                  <span class="grid h-9 w-9 flex-none place-items-center rounded-full bg-[#2A9D8F] text-white">3</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">Tunggu status update</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">Setelah transfer berhasil, status akan berubah otomatis.</p>
+                  </div>
+                </div>
+              </div>
+
               <div class="flex flex-col gap-4 rounded-2xl bg-[#FDF8F5] p-4 ring-1 ring-slate-200">
                 <div class="flex items-start gap-3">
-                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#e76f51] text-white">1</span>
+                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#e76f51] text-white">📷</span>
                   <div>
-                    <strong class="block text-sm text-slate-900">Klik tombol buka pembayaran</strong>
-                    <p class="m-0 text-xs leading-5 text-slate-600">Midtrans akan menampilkan detail transfer bank.</p>
-                  </div>
-                </div>
-                <div class="flex items-start gap-3">
-                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#e76f51] text-white">2</span>
-                  <div>
-                    <strong class="block text-sm text-slate-900">Pilih bank yang tersedia</strong>
-                    <p class="m-0 text-xs leading-5 text-slate-600">BCA, BNI, BRI, atau Mandiri.</p>
-                  </div>
-                </div>
-                <div class="flex items-start gap-3">
-                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#2A9D8F] text-white">3</span>
-                  <div>
-                    <strong class="block text-sm text-slate-900">Selesaikan transfer</strong>
-                    <p class="m-0 text-xs leading-5 text-slate-600">Status akan ter-update otomatis setelah transfer berhasil.</p>
+                    <strong class="block text-sm text-slate-900">Widget Midtrans</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">Jika widget belum tampil, klik tombol buka instruksi transfer bank di bawah.</p>
                   </div>
                 </div>
               </div>
@@ -189,7 +216,7 @@ const snapToken = pembayaran?.snap_token || ''
 
             <div class="mt-5 flex flex-col gap-3 sm:flex-row">
               <button id="openPaymentButton" type="button" class="inline-flex items-center justify-center rounded-2xl bg-[#e76f51] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(231,111,81,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50">
-                💳 Buka Instruksi Transfer
+                💳 Buka Instruksi Transfer Bank
               </button>
               <button id="refreshButton" type="button" class="inline-flex items-center justify-center rounded-2xl border border-[#e76f51] px-4 py-3 text-sm font-black text-[#e76f51] transition hover:bg-[#e76f51] hover:text-white">
                 🔄 Cek Status Pembayaran
@@ -234,6 +261,8 @@ const snapToken = pembayaran?.snap_token || ''
       noteText: document.getElementById('noteText'),
       timeoutArea: document.getElementById('timeoutArea'),
       infoOrderNumber: document.getElementById('infoOrderNumber'),
+      countdownText: document.querySelector('[data-countdown]'),
+      snapEmbed: document.getElementById('snapEmbed'),
     }
 
     const state = {
@@ -282,10 +311,10 @@ const snapToken = pembayaran?.snap_token || ''
     function tickCountdown() {
       const remaining = state.deadline - Date.now()
       const timerValue = formatCountdown(remaining)
-      document.querySelectorAll('[data-countdown]').forEach((node) => {
-        node.textContent = timerValue
-        node.style.color = remaining < 2 * 60 * 1000 ? '#ef4444' : remaining < 5 * 60 * 1000 ? '#f59e0b' : '#2A9D8F'
-      })
+      if (els.countdownText) {
+        els.countdownText.textContent = timerValue
+        els.countdownText.style.color = remaining < 2 * 60 * 1000 ? '#ef4444' : remaining < 5 * 60 * 1000 ? '#f59e0b' : '#2A9D8F'
+      }
 
       if (remaining <= 0 && !state.timedOut) {
         state.timedOut = true
@@ -313,17 +342,20 @@ const snapToken = pembayaran?.snap_token || ''
       })
     }
 
-    function openPayment() {
+    function renderSnapEmbed() {
+      if (!els.snapEmbed) return
+
       if (!SNAP_TOKEN) {
-        els.noteText.innerText = 'Token pembayaran belum tersedia.'
+        els.snapEmbed.innerHTML = '<div class="flex h-[320px] items-center justify-center text-sm text-slate-500">Token pembayaran belum tersedia.</div>'
         return
       }
 
       loadSnapScript()
         .then(() => {
-          if (!window.snap?.pay) throw new Error('Snap Midtrans belum siap')
-          state.paymentOpened = true
-          window.snap.pay(SNAP_TOKEN, {
+          if (!window.snap?.embed) throw new Error('Snap Midtrans belum siap')
+          els.snapEmbed.innerHTML = ''
+          window.snap.embed(SNAP_TOKEN, {
+            embedId: 'snapEmbed',
             onSuccess: () => {
               window.location.href = `/pembayaran/sukses/${ORDER_ID}`
             },
@@ -334,14 +366,13 @@ const snapToken = pembayaran?.snap_token || ''
               els.noteText.innerText = 'Gagal membuka instruksi transfer bank.'
             },
             onClose: () => {
-              if (!state.paymentOpened) return
               els.noteText.innerText = 'Instruksi pembayaran ditutup. Silakan buka lagi jika perlu.'
             },
           })
         })
         .catch((error) => {
           console.error(error)
-          els.noteText.innerText = 'Gagal memuat Midtrans Snap.'
+          els.snapEmbed.innerHTML = '<div class="flex h-[320px] items-center justify-center text-sm text-slate-500">Gagal memuat Midtrans Snap.</div>'
         })
     }
 
@@ -374,12 +405,13 @@ const snapToken = pembayaran?.snap_token || ''
     }
 
     els.refreshButton.addEventListener('click', () => refreshStatus())
-    els.openPaymentButton.addEventListener('click', openPayment)
+    els.openPaymentButton.addEventListener('click', renderSnapEmbed)
     setWhatsappButton(ORDER_ID)
 
     state.timerId = window.setInterval(tickCountdown, 1000)
     state.pollId = window.setInterval(refreshStatus, 5000)
     tickCountdown()
+    renderSnapEmbed()
     refreshStatus()
   </script>
 </Layout>
