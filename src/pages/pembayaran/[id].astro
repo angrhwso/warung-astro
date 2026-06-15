@@ -43,6 +43,9 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
 }).format(Number(pesanan?.total || 0))
 const snapToken = pembayaran?.snap_token || snapTokenFromUrl || ''
 const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redirectUrlFromUrl || ''
+
+// 🔥 PERBAIKAN: Hitung deadline timestamp di server (buat timer)
+const deadlineTimestamp = new Date(createdAt).getTime() + 15 * 60 * 1000;
 ---
 
 <Layout title={`Pembayaran ${orderLabel}`}>
@@ -83,10 +86,11 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
               <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">15 menit</span>
             </div>
             <div class="flex justify-center">
-              <PaymentCountdown client:load createdAt={createdAt} />
+              {/* 🔥 PERBAIKAN: Props createdAt dikirim dengan benar */}
+              <PaymentCountdown createdAt={createdAt} client:load />
             </div>
             <p class="mt-4 text-center text-sm font-semibold text-slate-600">
-              Sisa waktu: <span data-countdown class="font-black text-[#2A9D8F]">15:00</span>
+              Sisa waktu: <span id="countdownDisplay" class="font-black text-[#2A9D8F]">15:00</span>
             </p>
             <p class="mt-4 text-center text-sm text-slate-600">Timer berdetak halus. Hijau saat aman, kuning saat mendekati batas, merah saat hampir habis.</p>
           </article>
@@ -253,6 +257,9 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
     const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(midtransProduction)}
     const SNAP_TOKEN = ${JSON.stringify(snapToken)}
     const REDIRECT_URL = ${JSON.stringify(redirectUrl)}
+    
+    // 🔥 PERBAIKAN: Timer deadline langsung dari server
+    const DEADLINE_TIMESTAMP = ${deadlineTimestamp};
 
     const money = new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -268,12 +275,12 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
       noteText: document.getElementById('noteText'),
       timeoutArea: document.getElementById('timeoutArea'),
       infoOrderNumber: document.getElementById('infoOrderNumber'),
-      countdownText: document.querySelector('[data-countdown]'),
+      countdownDisplay: document.getElementById('countdownDisplay'),
       snapEmbed: document.getElementById('snapEmbed'),
     }
 
     const state = {
-      deadline: new Date(${JSON.stringify(createdAt)}).getTime() + 15 * 60 * 1000,
+      deadline: DEADLINE_TIMESTAMP,
       timerId: null,
       pollId: null,
       timedOut: false,
@@ -291,7 +298,9 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
     }
 
     function setWhatsappButton(orderId) {
-      els.whatsappButton.href = waLink(`Halo Kasir, saya ingin konfirmasi pembayaran untuk pesanan #${orderId}.`)
+      if (els.whatsappButton) {
+        els.whatsappButton.href = waLink(`Halo Kasir, saya ingin konfirmasi pembayaran untuk pesanan #${orderId}.`)
+      }
     }
 
     function setStatus(status) {
@@ -305,7 +314,9 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
         cancel: 'Pesanan Dibatalkan',
         expired: 'Waktu Habis',
       }
-      els.statusBadge.innerText = map[value] || 'Menunggu Pembayaran'
+      if (els.statusBadge) {
+        els.statusBadge.innerText = map[value] || 'Menunggu Pembayaran'
+      }
     }
 
     function formatCountdown(ms) {
@@ -318,19 +329,28 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
     function tickCountdown() {
       const remaining = state.deadline - Date.now()
       const timerValue = formatCountdown(remaining)
-      if (els.countdownText) {
-        els.countdownText.textContent = timerValue
-        els.countdownText.style.color = remaining < 2 * 60 * 1000 ? '#ef4444' : remaining < 5 * 60 * 1000 ? '#f59e0b' : '#2A9D8F'
+      
+      if (els.countdownDisplay) {
+        els.countdownDisplay.textContent = timerValue
+        if (remaining < 2 * 60 * 1000) {
+          els.countdownDisplay.style.color = '#ef4444'
+        } else if (remaining < 5 * 60 * 1000) {
+          els.countdownDisplay.style.color = '#f59e0b'
+        } else {
+          els.countdownDisplay.style.color = '#2A9D8F'
+        }
       }
 
       if (remaining <= 0 && !state.timedOut) {
         state.timedOut = true
-        els.noteText.innerText = 'Waktu habis, silakan hubungi kasir.'
-        els.timeoutArea.innerHTML = `
-          <a class="inline-flex items-center justify-center rounded-2xl bg-[#ef4444] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(239,68,68,0.18)]" href="${waLink(`Halo Kasir, waktu pembayaran pesanan #${ORDER_ID} sudah habis. Mohon bantu batalkan pesanan.`)}" target="_blank" rel="noreferrer">
-            Batalkan Pesanan
-          </a>
-        `
+        if (els.noteText) els.noteText.innerText = 'Waktu habis, silakan hubungi kasir.'
+        if (els.timeoutArea) {
+          els.timeoutArea.innerHTML = `
+            <a class="inline-flex items-center justify-center rounded-2xl bg-[#ef4444] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(239,68,68,0.18)]" href="${waLink(`Halo Kasir, waktu pembayaran pesanan #${ORDER_ID} sudah habis. Mohon bantu batalkan pesanan.`)}" target="_blank" rel="noreferrer">
+              Batalkan Pesanan
+            </a>
+          `
+        }
         clearInterval(state.timerId)
         clearInterval(state.pollId)
       }
@@ -369,13 +389,14 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
               window.location.href = `/pembayaran/sukses/${ORDER_ID}`
             },
             onPending: () => {
-              els.noteText.innerText = 'Menunggu konfirmasi transfer bank.'
+              if (els.noteText) els.noteText.innerText = 'Menunggu konfirmasi transfer bank.'
             },
-            onError: () => {
-              els.noteText.innerText = 'Gagal membuka instruksi transfer bank.'
+            onError: (err) => {
+              console.error('Snap error:', err)
+              if (els.noteText) els.noteText.innerText = 'Gagal membuka instruksi transfer bank.'
             },
             onClose: () => {
-              els.noteText.innerText = 'Instruksi pembayaran ditutup. Silakan buka lagi jika perlu.'
+              if (els.noteText) els.noteText.innerText = 'Instruksi pembayaran ditutup. Silakan buka lagi jika perlu.'
             },
           })
         })
@@ -385,7 +406,9 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
             window.open(REDIRECT_URL, '_blank', 'noopener,noreferrer')
             return
           }
-          els.snapEmbed.innerHTML = '<div class="flex h-[320px] items-center justify-center text-sm text-slate-500">Gagal memuat Midtrans Snap.</div>'
+          if (els.snapEmbed) {
+            els.snapEmbed.innerHTML = '<div class="flex h-[320px] items-center justify-center text-sm text-slate-500">Gagal memuat Midtrans Snap.</div>'
+          }
         })
     }
 
@@ -398,29 +421,36 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
         const data = await response.json()
 
         if (response.status === 404 || data?.not_found) {
-          els.noteText.innerText = 'Transaksi belum ditemukan di Midtrans. Status dianggap pending.'
+          if (els.noteText) els.noteText.innerText = 'Transaksi belum ditemukan di Midtrans. Status dianggap pending.'
           return
         }
 
-        const pesanan = data?.pesanan
-        const pembayaran = data?.pembayaran
-        if (pesanan) {
-          els.infoOrderNumber.innerText = `#${pesanan.id}`
+        const pesananData = data?.pesanan
+        const pembayaranData = data?.pembayaran
+        if (pesananData && els.infoOrderNumber) {
+          els.infoOrderNumber.innerText = `#${pesananData.id}`
         }
-        if (pembayaran?.status) setStatus(pembayaran.status)
-        if (['paid', 'settlement', 'capture'].includes(String(pembayaran?.status || '').toLowerCase())) {
-          window.location.href = `/pembayaran/sukses/${pesanan.id}`
+        if (pembayaranData?.status) setStatus(pembayaranData.status)
+        if (['paid', 'settlement', 'capture'].includes(String(pembayaranData?.status || '').toLowerCase())) {
+          window.location.href = `/pembayaran/sukses/${pesananData?.id || ORDER_ID}`
         }
       } catch (error) {
         console.error(error)
-        els.noteText.innerText = 'Gagal memuat status pembayaran. Coba lagi sebentar.'
+        if (els.noteText) els.noteText.innerText = 'Gagal memuat status pembayaran. Coba lagi sebentar.'
       }
     }
 
-    els.refreshButton.addEventListener('click', () => refreshStatus())
-    els.openPaymentButton.addEventListener('click', openPayment)
+    // Event listeners
+    if (els.refreshButton) {
+      els.refreshButton.addEventListener('click', () => refreshStatus())
+    }
+    if (els.openPaymentButton) {
+      els.openPaymentButton.addEventListener('click', openPayment)
+    }
+    
     setWhatsappButton(ORDER_ID)
 
+    // Start timer and polling
     state.timerId = window.setInterval(tickCountdown, 1000)
     state.pollId = window.setInterval(refreshStatus, 5000)
     tickCountdown()
