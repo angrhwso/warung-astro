@@ -167,6 +167,7 @@ export async function POST({ request }) {
       metode: 'midtrans',
       snap_token: transaction.token || null,
       redirect_url: transaction.redirect_url || null,
+      payment_link: transaction.redirect_url || null,
       status: 'pending',
     })
 

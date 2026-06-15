@@ -9,6 +9,8 @@ const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
 const testing = Astro.url.searchParams.get('testing') === '1'
 const midtransClientKey = import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || ''
 const midtransProduction = String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true'
+const snapTokenFromUrl = Astro.url.searchParams.get('snapToken') || ''
+const redirectUrlFromUrl = Astro.url.searchParams.get('redirectUrl') || ''
 const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
 
 let pesanan = null
@@ -39,7 +41,8 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
   currency: 'IDR',
   maximumFractionDigits: 0,
 }).format(Number(pesanan?.total || 0))
-const snapToken = pembayaran?.snap_token || ''
+const snapToken = pembayaran?.snap_token || snapTokenFromUrl || ''
+const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redirectUrlFromUrl || ''
 ---
 
 <Layout title={`Pembayaran ${orderLabel}`}>
@@ -176,7 +179,10 @@ const snapToken = pembayaran?.snap_token || ''
 
             <div class="rounded-[1.25rem] border-2 border-dashed border-[#e76f51] bg-white p-4 shadow-sm">
               <div id="snapEmbed" class="min-h-[320px] rounded-2xl bg-white p-2">
-                <div class="flex h-[320px] items-center justify-center text-sm text-slate-500">Memuat instruksi transfer bank...</div>
+                <div class="flex h-[320px] flex-col items-center justify-center gap-3 text-center text-sm text-slate-500">
+                  <p class="m-0">Klik tombol di bawah untuk membuka instruksi transfer bank.</p>
+                  <p class="m-0 text-xs text-slate-400">BCA, BNI, BRI, dan Mandiri akan muncul di popup Midtrans.</p>
+                </div>
               </div>
 
               <div class="mt-4 rounded-2xl bg-[#FDF8F5] p-4 ring-1 ring-slate-200">
@@ -246,6 +252,7 @@ const snapToken = pembayaran?.snap_token || ''
     const MIDTRANS_CLIENT_KEY = ${JSON.stringify(midtransClientKey)}
     const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(midtransProduction)}
     const SNAP_TOKEN = ${JSON.stringify(snapToken)}
+    const REDIRECT_URL = ${JSON.stringify(redirectUrl)}
 
     const money = new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -342,20 +349,22 @@ const snapToken = pembayaran?.snap_token || ''
       })
     }
 
-    function renderSnapEmbed() {
+    function openPayment() {
       if (!els.snapEmbed) return
 
       if (!SNAP_TOKEN) {
+        if (REDIRECT_URL) {
+          window.open(REDIRECT_URL, '_blank', 'noopener,noreferrer')
+          return
+        }
         els.snapEmbed.innerHTML = '<div class="flex h-[320px] items-center justify-center text-sm text-slate-500">Token pembayaran belum tersedia.</div>'
         return
       }
 
       loadSnapScript()
         .then(() => {
-          if (!window.snap?.embed) throw new Error('Snap Midtrans belum siap')
-          els.snapEmbed.innerHTML = ''
-          window.snap.embed(SNAP_TOKEN, {
-            embedId: 'snapEmbed',
+          if (!window.snap?.pay) throw new Error('Snap Midtrans belum siap')
+          window.snap.pay(SNAP_TOKEN, {
             onSuccess: () => {
               window.location.href = `/pembayaran/sukses/${ORDER_ID}`
             },
@@ -372,6 +381,10 @@ const snapToken = pembayaran?.snap_token || ''
         })
         .catch((error) => {
           console.error(error)
+          if (REDIRECT_URL) {
+            window.open(REDIRECT_URL, '_blank', 'noopener,noreferrer')
+            return
+          }
           els.snapEmbed.innerHTML = '<div class="flex h-[320px] items-center justify-center text-sm text-slate-500">Gagal memuat Midtrans Snap.</div>'
         })
     }
@@ -405,13 +418,12 @@ const snapToken = pembayaran?.snap_token || ''
     }
 
     els.refreshButton.addEventListener('click', () => refreshStatus())
-    els.openPaymentButton.addEventListener('click', renderSnapEmbed)
+    els.openPaymentButton.addEventListener('click', openPayment)
     setWhatsappButton(ORDER_ID)
 
     state.timerId = window.setInterval(tickCountdown, 1000)
     state.pollId = window.setInterval(refreshStatus, 5000)
     tickCountdown()
-    renderSnapEmbed()
     refreshStatus()
   </script>
 </Layout>

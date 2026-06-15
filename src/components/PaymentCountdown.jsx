@@ -23,7 +23,8 @@ function getTone(remainingSeconds) {
 
 export default function PaymentCountdown({ createdAt, onExpire, className = '' }) {
   const deadline = useMemo(() => {
-    const base = createdAt ? new Date(createdAt).getTime() : Date.now()
+    const parsed = createdAt ? Date.parse(createdAt) : NaN
+    const base = Number.isFinite(parsed) ? parsed : Date.now()
     return base + DURATION_SECONDS * 1000
   }, [createdAt])
 
