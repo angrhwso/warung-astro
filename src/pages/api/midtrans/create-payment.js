@@ -152,7 +152,7 @@ export async function POST({ request }) {
         first_name: customer_name || 'Customer',
         phone: customer_phone || undefined,
       },
-      enabled_payments: ['gopay', 'shopeepay', 'qris', 'bank_transfer', 'credit_card'],
+      enabled_payments: ['Bank_Transfer'],
       bank_transfer: {
         banks: ['bca', 'bni', 'bri', 'mandiri'],
       },
