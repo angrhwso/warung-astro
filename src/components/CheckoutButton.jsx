@@ -43,14 +43,10 @@ export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, meto
         hasRedirectUrl: Boolean(data.redirectUrl),
       })
 
-      // redirect to payment page (will show QR/links)
+      // redirect to payment page using only the order id
       const pesananId = data.pesanan?.id || (data.midtrans && data.midtrans.order_id?.split('-')[1])
-      const params = new URLSearchParams()
-      if (getTestingMode()) params.set('testing', '1')
-      if (data.snapToken) params.set('snapToken', data.snapToken)
-      if (data.redirectUrl) params.set('redirectUrl', data.redirectUrl)
-      const query = params.toString() ? `?${params.toString()}` : ''
-      window.location.href = `/pembayaran/${pesananId}${query}`
+      const testing = getTestingMode() ? '?testing=1' : ''
+      window.location.href = `/pembayaran/${pesananId}${testing}`
     } catch (err) {
       console.error(err)
       alert('Gagal melakukan checkout: ' + (err.message || err))

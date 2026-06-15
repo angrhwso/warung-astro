@@ -7,8 +7,6 @@ const id = Astro.params.id
 const isDev = import.meta.env.DEV === true
 const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
 const testing = Astro.url.searchParams.get('testing') === '1'
-const snapTokenFromUrl = Astro.url.searchParams.get('snapToken') || ''
-const redirectUrlFromUrl = Astro.url.searchParams.get('redirectUrl') || ''
 const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
 
 let pesanan = null
@@ -41,8 +39,8 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
   currency: 'IDR',
   maximumFractionDigits: 0,
 }).format(Number(pesanan?.total || 0))
-const snapToken = pembayaran?.snap_token || snapTokenFromUrl || ''
-const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redirectUrlFromUrl || ''
+const snapToken = pembayaran?.snap_token || ''
+const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 ---
 
 <Layout title={`Pembayaran ${orderLabel}`}>
@@ -212,9 +210,12 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
     const REDIRECT_URL = ${JSON.stringify(redirectUrl)}
     const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
     const DEADLINE = ${JSON.stringify(deadlineTimestamp)}
+    const DEADLINE_TIMESTAMP = DEADLINE
     const IS_DEV = ${JSON.stringify(isDev)}
     const MIDTRANS_CLIENT_KEY = ${JSON.stringify(import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '')}
     const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true')}
+
+    window.DEADLINE_TIMESTAMP = DEADLINE_TIMESTAMP
 
     const money = new Intl.NumberFormat('id-ID', {
       style: 'currency',
