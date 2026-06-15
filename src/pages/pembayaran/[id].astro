@@ -1,170 +1,186 @@
 ---
 import Layout from '../../layouts/Layout.astro'
 import ConfettiEffect from '../../components/ConfettiEffect.jsx'
+import PaymentCountdown from '../../components/PaymentCountdown.jsx'
 
 const id = Astro.params.id
 const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
 const testing = Astro.url.searchParams.get('testing') === '1'
 const midtransClientKey = import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || ''
 const midtransProduction = String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true'
-const orderBadge = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
+const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
 ---
 
-<Layout title={`Pembayaran Pesanan ${orderBadge}`}>
-  <main class="payment-page-shell">
-    <section class="payment-page" data-order-id={id} data-testing={testing ? 'true' : 'false'} data-whatsapp-cs={whatsappCs}>
-      <header class="payment-hero">
+<Layout title={`Pembayaran ${orderLabel}`}>
+  <main class="min-h-screen bg-[#FDF8F5] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+    <section class="mx-auto max-w-7xl">
+      <header class="mb-6 flex flex-col gap-4 rounded-[1.75rem] border border-[#e76f51]/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(43,31,26,0.08)] backdrop-blur sm:p-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p class="payment-eyebrow">Pembayaran</p>
-          <h1>🍜 Selesaikan Pembayaran</h1>
-          <p class="payment-subtitle">Selesaikan pembayaran sebelum timer habis agar pesanan langsung diproses.</p>
+          <p class="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#e76f51]">Pembayaran</p>
+          <h1 class="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">🍜 Selesaikan Pembayaran</h1>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Bayar pesanan Anda dengan QRIS, lalu tunggu konfirmasi otomatis dari sistem.
+          </p>
         </div>
-        <div class="payment-badges">
-          <span class="payment-badge payment-badge-muted">Order ID: <strong id="orderNumber">{orderBadge}</strong></span>
-          <span class="payment-badge payment-badge-warning" id="statusBadge">Menunggu pembayaran</span>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="inline-flex items-center rounded-full bg-[#FDF8F5] px-4 py-2 text-sm font-bold text-slate-700 ring-1 ring-slate-200">
+            Order ID: <strong class="ml-1 text-slate-900">{orderLabel}</strong>
+          </span>
+          <span id="statusBadge" class="inline-flex animate-pulse items-center rounded-full bg-[#FEF3C7] px-4 py-2 text-sm font-bold text-[#92400e] ring-1 ring-[#f59e0b]/20">
+            Menunggu Pembayaran
+          </span>
         </div>
       </header>
 
-      <div class="payment-announcement" role="note" aria-label="Informasi pembayaran">
-        <span class="payment-announcement-icon">ℹ️</span>
-        <p>Saat ini pembayaran hanya QRIS. Metode lain sedang maintenance.</p>
+      <div class="mb-6 flex items-start gap-3 rounded-2xl border-l-4 border-[#F59E0B] bg-[#FEF3C7] px-4 py-3 text-sm leading-6 text-[#7c5a12] shadow-sm">
+        <div class="text-base leading-none">ℹ️</div>
+        <p class="m-0">Saat ini pembayaran hanya QRIS. Metode lain sedang maintenance.</p>
       </div>
 
-      <section class="payment-grid">
-        <div class="payment-column">
-          <article class="payment-card payment-card-timer">
-            <p class="payment-card-label">Batas Waktu Pembayaran</p>
-            <div class="payment-countdown" id="countdown">15:00</div>
-            <p class="payment-helper" id="timerHelper">Waktu tersisa untuk menyelesaikan pembayaran.</p>
-          </article>
-
-          <article class="payment-card">
-            <div class="payment-card-header">
-              <h2>Informasi Pesanan</h2>
-              <span class="payment-mini-badge" id="paymentMethodTag">QRIS</span>
-            </div>
-            <div class="payment-info-grid">
-              <div class="payment-info-item">
-                <span>Nomor Pesanan</span>
-                <strong id="infoOrderNumber">-</strong>
-              </div>
-              <div class="payment-info-item">
-                <span>Total Bayar</span>
-                <strong id="infoTotal">-</strong>
-              </div>
-              <div class="payment-info-item">
-                <span>Status</span>
-                <strong id="infoStatus">Menunggu pembayaran</strong>
-              </div>
-              <div class="payment-info-item">
-                <span>Waktu Pesanan</span>
-                <strong id="infoTime">-</strong>
-              </div>
-            </div>
-            <div class="payment-order-meta">
-              <p><strong>Tipe Pesanan:</strong> <span id="infoType">-</span></p>
-              <p><strong>Nama Customer:</strong> <span id="infoCustomer">-</span></p>
-            </div>
-          </article>
-
-          <article class="payment-card">
-            <div class="payment-card-header">
-              <h2>Detail Pesanan</h2>
-              <span class="payment-mini-note">Nama, jumlah, harga</span>
-            </div>
-            <div class="payment-table-wrap">
-              <table class="payment-table">
-                <thead>
-                  <tr>
-                    <th>Menu</th>
-                    <th>Jumlah</th>
-                    <th>Harga</th>
-                  </tr>
-                </thead>
-                <tbody id="menuTable">
-                  <tr>
-                    <td colspan="3" class="payment-empty-cell">Memuat detail pesanan...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="payment-totals">
+      <div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <section class="grid gap-6">
+          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
               <div>
-                <span>Subtotal</span>
-                <strong id="subtotalValue">-</strong>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Timer</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Waktu Pembayaran</h2>
               </div>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">Aman jika di bawah 15 menit</span>
+            </div>
+            <div class="flex justify-center">
+              <PaymentCountdown client:load />
+            </div>
+            <p class="mt-4 text-center text-sm text-slate-600">Timer berdetak halus. Hijau saat aman, kuning saat mendekati batas, merah saat hampir habis.</p>
+          </article>
+
+          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
               <div>
-                <span>Total</span>
-                <strong id="totalValue">-</strong>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Detail Pesanan</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Menu yang Dipesan</h2>
+              </div>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">Live from Supabase</span>
+            </div>
+
+            <div class="overflow-hidden rounded-2xl border border-slate-200">
+              <div class="hidden grid-cols-[72px_1fr_auto] gap-4 bg-[#fff7f2] px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-600 sm:grid">
+                <span>Foto</span>
+                <span>Menu</span>
+                <span class="text-right">Harga</span>
+              </div>
+              <div id="menuList" class="divide-y divide-slate-200">
+                <div class="px-4 py-6 text-center text-sm text-slate-500">Memuat detail pesanan...</div>
+              </div>
+            </div>
+
+            <div class="mt-4 rounded-2xl bg-[#fff7f2] p-4 ring-1 ring-[#e76f51]/10">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-sm font-bold text-slate-600">Total Harga</span>
+                <strong id="totalValue" class="text-2xl font-black tracking-tight text-slate-900">-</strong>
               </div>
             </div>
           </article>
+        </section>
 
-          <article class="payment-card">
-            <div class="payment-card-header">
-              <h2>Metode Pembayaran</h2>
-              <span class="payment-mini-note">QRIS aktif</span>
+        <aside class="grid gap-6">
+          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Metode Pembayaran</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">QRIS / GoPay</h2>
+              </div>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">Rekomendasi</span>
             </div>
-            <div class="payment-method-grid" id="methodGrid"></div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <button type="button" class="rounded-2xl border border-[#e76f51]/20 bg-[#fff7f2] px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                <span class="block text-sm font-black text-slate-900">QRIS</span>
+                <span class="mt-1 block text-xs leading-5 text-slate-600">Scan QR code dengan aplikasi pembayaran apa pun.</span>
+              </button>
+              <button type="button" class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                <span class="block text-sm font-black text-slate-900">GoPay</span>
+                <span class="mt-1 block text-xs leading-5 text-slate-600">Pembayaran cepat melalui dompet digital.</span>
+              </button>
+            </div>
           </article>
 
-          <article class="payment-card">
-            <div class="payment-card-header">
-              <h2>Instruksi Pembayaran</h2>
-              <span class="payment-mini-note">Langkah mudah</span>
+          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
+            <div class="mb-4 text-center">
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">QR Code</p>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Scan untuk bayar</h2>
             </div>
-            <ol class="payment-steps">
-              <li>Scan QR code di samping menggunakan GoPay, OVO, Dana, atau aplikasi QRIS lainnya.</li>
-              <li>Pastikan nominal yang tampil sesuai total pesanan.</li>
-              <li>Setelah berhasil, status akan otomatis berubah dan Anda akan diarahkan ke halaman sukses.</li>
+
+            <div class="mx-auto flex w-full max-w-[250px] items-center justify-center rounded-[1.25rem] border-2 border-dashed border-[#e76f51] bg-white p-4 shadow-sm">
+              <div id="qrStage" class="flex h-[250px] w-[250px] items-center justify-center rounded-2xl bg-white">
+                <p class="text-sm text-slate-500">Memuat QR code...</p>
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-col items-center gap-2 text-center">
+              <div class="text-2xl">📷</div>
+              <p class="text-sm leading-6 text-slate-600">
+                Scan QR code dengan GoPay, OVO, atau DANA
+              </p>
+            </div>
+
+            <ol class="mt-5 grid gap-3">
+              <li class="flex gap-3 rounded-2xl bg-[#FDF8F5] p-3 ring-1 ring-slate-200">
+                <span class="grid h-8 w-8 place-items-center rounded-full bg-[#e76f51] text-sm font-black text-white">1</span>
+                <div>
+                  <strong class="block text-sm text-slate-900">Buka aplikasi pembayaran</strong>
+                  <p class="m-0 text-xs leading-5 text-slate-600">Gunakan aplikasi dompet digital yang mendukung QRIS.</p>
+                </div>
+              </li>
+              <li class="flex gap-3 rounded-2xl bg-[#FDF8F5] p-3 ring-1 ring-slate-200">
+                <span class="grid h-8 w-8 place-items-center rounded-full bg-[#e76f51] text-sm font-black text-white">2</span>
+                <div>
+                  <strong class="block text-sm text-slate-900">Scan QR code</strong>
+                  <p class="m-0 text-xs leading-5 text-slate-600">Arahkan kamera ke QR code yang tampil di halaman ini.</p>
+                </div>
+              </li>
+              <li class="flex gap-3 rounded-2xl bg-[#FDF8F5] p-3 ring-1 ring-slate-200">
+                <span class="grid h-8 w-8 place-items-center rounded-full bg-[#2A9D8F] text-sm font-black text-white">3</span>
+                <div>
+                  <strong class="block text-sm text-slate-900">Konfirmasi dan tunggu sukses</strong>
+                  <p class="m-0 text-xs leading-5 text-slate-600">Setelah berhasil, status akan berubah otomatis.</p>
+                </div>
+              </li>
             </ol>
+
+            <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+              <button id="refreshButton" type="button" class="inline-flex items-center justify-center rounded-2xl border border-[#e76f51] px-4 py-3 text-sm font-black text-[#e76f51] transition hover:bg-[#e76f51] hover:text-white">
+                🔄 Cek Status Pembayaran
+              </button>
+              <a id="whatsappButton" href="#" target="_blank" rel="noreferrer" class="inline-flex items-center justify-center rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(37,211,102,0.22)] transition hover:-translate-y-0.5">
+                💬 Hubungi Kasir
+              </a>
+            </div>
           </article>
 
-          <article class="payment-card">
-            <div class="payment-card-header">
-              <h2>Tombol Aksi</h2>
-              <span class="payment-mini-note">Cepat dan praktis</span>
+          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
+            <div class="flex items-center justify-between gap-3">
+              <h2 class="text-lg font-black text-slate-900">Info Pesanan</h2>
+              <span class="inline-flex animate-pulse items-center rounded-full bg-[#FEF3C7] px-3 py-1 text-xs font-bold text-[#92400e]">Menunggu Pembayaran</span>
             </div>
-            <div class="payment-actions">
-              <button class="payment-button payment-button-secondary" id="refreshButton" type="button">🔄 Cek Status Pembayaran</button>
-              <a class="payment-button payment-button-primary" id="whatsappButton" href="#" target="_blank" rel="noreferrer">💬 Hubungi Kasir</a>
-            </div>
-          </article>
-        </div>
-
-        <aside class="payment-column payment-side">
-          <article class="payment-card payment-qr-card">
-            <div class="payment-card-header payment-card-header-center">
-              <h2>QR Code Pembayaran</h2>
-            </div>
-            <div class="payment-qr-timer" id="sideTimer">15:00</div>
-            <div class="payment-qr-shell">
-              <div class="payment-qr-stage" id="qrStage">
-                <p class="payment-empty-state">Memuat QR code...</p>
+            <dl class="mt-4 grid gap-3 text-sm text-slate-600">
+              <div class="flex items-center justify-between gap-4 rounded-2xl bg-[#FDF8F5] px-4 py-3 ring-1 ring-slate-200">
+                <dt class="font-semibold">Order ID</dt>
+                <dd id="infoOrderNumber" class="font-black text-slate-900">-</dd>
               </div>
-            </div>
-            <p class="payment-qr-caption">Scan QR code di atas menggunakan GoPay, OVO, Dana, atau aplikasi QRIS lainnya.</p>
-            <div class="payment-qr-actions" id="timeoutArea"></div>
-          </article>
-
-          <article class="payment-card">
-            <div class="payment-card-header">
-              <h2>Announcement</h2>
-            </div>
-            <div class="payment-announcement payment-announcement-block">
-              <span class="payment-announcement-icon">ℹ️</span>
-              <p>Saat ini pembayaran hanya QRIS. Metode lain sedang maintenance.</p>
-            </div>
-          </article>
-
-          <article class="payment-card">
-            <div class="payment-card-header">
-              <h2>Catatan</h2>
-            </div>
-            <p class="payment-helper" id="noteText">Pesanan Anda sedang menunggu pembayaran.</p>
+              <div class="flex items-center justify-between gap-4 rounded-2xl bg-[#FDF8F5] px-4 py-3 ring-1 ring-slate-200">
+                <dt class="font-semibold">Customer</dt>
+                <dd id="infoCustomer" class="font-black text-slate-900">-</dd>
+              </div>
+            </dl>
           </article>
         </aside>
-      </section>
+      </div>
+
+      <div class="mt-6">
+        <p id="noteText" class="m-0 text-sm text-slate-600">Pesanan Anda sedang menunggu pembayaran.</p>
+        <div id="timeoutArea" class="mt-4"></div>
+      </div>
     </section>
 
     <ConfettiEffect client:load />
@@ -172,7 +188,6 @@ const orderBadge = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
 
   <script is:inline type="module">
     const ORDER_ID = ${JSON.stringify(id)}
-    const ORDER_BADGE = ${JSON.stringify(orderBadge)}
     const TESTING = ${JSON.stringify(testing)}
     const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
     const MIDTRANS_CLIENT_KEY = ${JSON.stringify(midtransClientKey)}
@@ -184,72 +199,29 @@ const orderBadge = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
       maximumFractionDigits: 0,
     })
 
+    const els = {
+      statusBadge: document.getElementById('statusBadge'),
+      qrStage: document.getElementById('qrStage'),
+      refreshButton: document.getElementById('refreshButton'),
+      whatsappButton: document.getElementById('whatsappButton'),
+      menuList: document.getElementById('menuList'),
+      totalValue: document.getElementById('totalValue'),
+      infoOrderNumber: document.getElementById('infoOrderNumber'),
+      infoCustomer: document.getElementById('infoCustomer'),
+      noteText: document.getElementById('noteText'),
+      timeoutArea: document.getElementById('timeoutArea'),
+      infoStatus: document.getElementById('infoStatus'),
+      infoTime: document.getElementById('infoTime'),
+      infoType: document.getElementById('infoType'),
+    }
+
     const state = {
       deadline: Date.now() + 15 * 60 * 1000,
       timerId: null,
       pollId: null,
       timedOut: false,
-      redirecting: false,
       retries404: 0,
     }
-
-    const els = {
-      countdown: document.getElementById('countdown'),
-      sideTimer: document.getElementById('sideTimer'),
-      timerHelper: document.getElementById('timerHelper'),
-      statusBadge: document.getElementById('statusBadge'),
-      paymentMethodTag: document.getElementById('paymentMethodTag'),
-      infoOrderNumber: document.getElementById('infoOrderNumber'),
-      infoTotal: document.getElementById('infoTotal'),
-      infoStatus: document.getElementById('infoStatus'),
-      infoTime: document.getElementById('infoTime'),
-      infoType: document.getElementById('infoType'),
-      infoCustomer: document.getElementById('infoCustomer'),
-      menuTable: document.getElementById('menuTable'),
-      subtotalValue: document.getElementById('subtotalValue'),
-      totalValue: document.getElementById('totalValue'),
-      methodGrid: document.getElementById('methodGrid'),
-      qrStage: document.getElementById('qrStage'),
-      timeoutArea: document.getElementById('timeoutArea'),
-      noteText: document.getElementById('noteText'),
-      whatsappButton: document.getElementById('whatsappButton'),
-      refreshButton: document.getElementById('refreshButton'),
-    }
-
-    const methods = [
-      {
-        key: 'qris',
-        icon: '📱',
-        title: 'QRIS',
-        desc: 'Scan QR Code dengan GoPay, OVO, Dana, dll',
-        steps: [
-          'Scan QR code di atas menggunakan GoPay, OVO, Dana, atau aplikasi QRIS lainnya.',
-          'Pastikan nominal sesuai total pesanan.',
-          'Tunggu status berubah otomatis setelah pembayaran berhasil.',
-        ],
-      },
-      {
-        key: 'gopay',
-        icon: '💳',
-        title: 'GoPay',
-        desc: 'Bayar dengan GoPay',
-        steps: ['Buka aplikasi GoPay.', 'Konfirmasi transaksi yang muncul.', 'Tunggu status pembelian selesai.'],
-      },
-      {
-        key: 'shopeepay',
-        icon: '🛍️',
-        title: 'ShopeePay',
-        desc: 'Bayar dengan ShopeePay',
-        steps: ['Buka ShopeePay.', 'Lakukan konfirmasi pembayaran.', 'Selesaikan transaksi sebelum waktu habis.'],
-      },
-      {
-        key: 'bank_transfer',
-        icon: '🏦',
-        title: 'Bank Transfer',
-        desc: 'Transfer Bank BCA / BNI / BRI / Mandiri',
-        steps: ['Gunakan virtual account atau instruksi transfer.', 'Transfer sesuai nominal.', 'Simpan bukti transfer jika dibutuhkan.'],
-      },
-    ]
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -272,13 +244,6 @@ const orderBadge = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
       }).format(new Date(value))
     }
 
-    function formatCountdown(ms) {
-      const total = Math.max(0, Math.floor(ms / 1000))
-      const minutes = String(Math.floor(total / 60)).padStart(2, '0')
-      const seconds = String(total % 60).padStart(2, '0')
-      return `${minutes}:${seconds}`
-    }
-
     function normalizePhone(value) {
       return String(value || '').replace(/[^\d]/g, '')
     }
@@ -290,191 +255,121 @@ const orderBadge = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
     }
 
     function setWhatsappButton(orderId) {
-      els.whatsappButton.href = waLink(`Halo Kasir, saya ingin konfirmasi pembayaran untuk pesanan ${ORDER_BADGE || `#${orderId}`}.`)
+      els.whatsappButton.href = waLink(`Halo Kasir, saya ingin konfirmasi pembayaran untuk pesanan #${orderId}.`)
     }
 
-    function setStatusBadge(status) {
-      const normalized = String(status || 'pending').toLowerCase()
+    function setStatus(status) {
+      const value = String(status || 'pending').toLowerCase()
       const map = {
-        pending: { label: 'Menunggu pembayaran', className: 'status-pending' },
-        paid: { label: 'Pembayaran diterima', className: 'status-success' },
-        settlement: { label: 'Pembayaran diterima', className: 'status-success' },
-        capture: { label: 'Pembayaran diterima', className: 'status-success' },
-        failed: { label: 'Pembayaran gagal', className: 'status-danger' },
-        cancel: { label: 'Pesanan dibatalkan', className: 'status-danger' },
-        expired: { label: 'Waktu pembayaran habis', className: 'status-danger' },
+        pending: 'Menunggu Pembayaran',
+        paid: 'Pembayaran Diterima',
+        settlement: 'Pembayaran Diterima',
+        capture: 'Pembayaran Diterima',
+        failed: 'Pembayaran Gagal',
+        cancel: 'Pesanan Dibatalkan',
+        expired: 'Waktu Habis',
       }
-      const selected = map[normalized] || map.pending
-      els.statusBadge.className = `payment-badge ${selected.className}`
-      els.statusBadge.innerText = selected.label
-      els.infoStatus.innerText = selected.label
+      els.statusBadge.innerText = map[value] || 'Menunggu Pembayaran'
+      els.infoStatus && (els.infoStatus.innerText = map[value] || 'Menunggu Pembayaran')
     }
 
-    function renderMethods(activeKey = 'qris') {
-      els.methodGrid.innerHTML = methods.map((item) => `
-        <article class="method-card ${item.key === activeKey ? 'is-active' : ''}">
-          <div class="method-icon">${item.icon}</div>
-          <div>
-            <strong>${escapeHtml(item.title)}</strong>
-            <p>${escapeHtml(item.desc)}</p>
-          </div>
-        </article>
-      `).join('')
-      els.paymentMethodTag.innerText = methods.find((item) => item.key === activeKey)?.title || 'QRIS'
+    function setDeadline(createdAt) {
+      const base = createdAt ? new Date(createdAt).getTime() : Date.now()
+      state.deadline = base + 15 * 60 * 1000
     }
 
-    function renderMenuRows(items = []) {
+    function formatCountdown(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000))
+      const minutes = String(Math.floor(total / 60)).padStart(2, '0')
+      const seconds = String(total % 60).padStart(2, '0')
+      return `${minutes}:${seconds}`
+    }
+
+    function tickCountdown() {
+      const remaining = state.deadline - Date.now()
+      const timerValue = formatCountdown(remaining)
+      const tone = remaining < 2 * 60 ? '#ef4444' : remaining < 5 * 60 * 1000 ? '#f59e0b' : '#2A9D8F'
+      els.statusBadge.classList.toggle('animate-pulse', remaining > 0)
+      els.statusBadge.style.backgroundColor = remaining > 0 ? '#FEF3C7' : '#FEE2E2'
+      els.statusBadge.style.color = remaining > 0 ? '#92400e' : '#991b1b'
+      const countdownNodes = document.querySelectorAll('[data-countdown]')
+      countdownNodes.forEach((node) => {
+        node.textContent = timerValue
+        node.style.color = tone
+      })
+
+      if (remaining <= 0 && !state.timedOut) {
+        state.timedOut = true
+        els.noteText.innerText = 'Waktu habis, silakan hubungi kasir.'
+        els.timeoutArea.innerHTML = `
+          <a class="inline-flex items-center justify-center rounded-2xl bg-[#ef4444] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(239,68,68,0.18)]" href="${waLink(`Halo Kasir, waktu pembayaran pesanan #${ORDER_ID} sudah habis. Mohon bantu batalkan pesanan.`)}" target="_blank" rel="noreferrer">
+            Batalkan Pesanan
+          </a>
+        `
+        clearInterval(state.timerId)
+        clearInterval(state.pollId)
+      }
+    }
+
+    function renderMenuItems(items = []) {
       if (!items.length) {
-        els.menuTable.innerHTML = '<tr><td colspan="3" class="payment-empty-cell">Detail menu belum tersedia.</td></tr>'
+        els.menuList.innerHTML = '<div class="px-4 py-6 text-center text-sm text-slate-500">Detail pesanan belum tersedia.</div>'
         return
       }
 
-      els.menuTable.innerHTML = items.map((item) => {
-        const nama = item.menu?.nama || item.nama_menu || `Menu #${item.id_menu}`
-        const qty = Number(item.jumlah || 0)
-        const hargaSatuan = Number(item.harga_saat_pesan ?? item.harga ?? 0)
+      els.menuList.innerHTML = items.map((item) => {
+        const nama = item.menu?.nama || `Menu #${item.id_menu}`
+        const jumlah = Number(item.jumlah || 0)
+        const harga = Number(item.harga_saat_pesan || 0)
+        const total = jumlah * harga
+        const image = item.menu?.gambar_url
         return `
-          <tr>
-            <td>${escapeHtml(nama)}</td>
-            <td>${qty}</td>
-            <td>${money.format(hargaSatuan * qty)}</td>
-          </tr>
+          <div class="grid grid-cols-[72px_1fr_auto] items-center gap-4 px-4 py-4">
+            <div class="overflow-hidden rounded-2xl bg-[#FDF8F5] ring-1 ring-slate-200">
+              ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(nama)}" class="h-18 w-18 object-cover" />` : '<div class="flex h-18 w-18 items-center justify-center text-xs font-bold text-slate-500">Menu</div>'}
+            </div>
+            <div>
+              <strong class="block text-sm font-black text-slate-900">${escapeHtml(nama)}</strong>
+              <span class="mt-1 inline-flex rounded-full bg-[#2A9D8F]/10 px-2 py-1 text-xs font-semibold text-[#2A9D8F]">Qty ${jumlah}</span>
+            </div>
+            <div class="text-right text-sm font-black text-slate-900">${money.format(total)}</div>
+          </div>
         `
       }).join('')
-    }
-
-    function buildQrSource(data) {
-      const payment = data?.pembayaran || {}
-      const candidates = [
-        payment.qr_code,
-        payment.qr_url,
-        payment.redirect_url,
-        data?.midtrans?.qr_url,
-        data?.midtrans?.redirect_url,
-      ].filter(Boolean)
-      return candidates[0] || null
     }
 
     function renderQr(source, snapToken) {
       if (source) {
         els.qrStage.innerHTML = `
-          <img class="payment-qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(source)}" alt="QR code pembayaran" width="300" height="300" />
+          <img
+            src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(source)}"
+            alt="QR code pembayaran"
+            class="h-[250px] w-[250px] rounded-2xl object-contain"
+            width="250"
+            height="250"
+          />
         `
         return
       }
 
       if (snapToken && window.snap?.embed) {
-        els.qrStage.innerHTML = '<div id="snap-embed"></div>'
+        els.qrStage.innerHTML = '<div id="snap-embed" class="w-full"></div>'
         window.snap.embed(snapToken, {
           embedId: 'snap-embed',
-          onPending: () => { els.noteText.innerText = 'Menunggu konfirmasi pembayaran.' },
-          onSuccess: () => { els.noteText.innerText = 'Pembayaran berhasil diproses.' },
-          onError: () => { els.noteText.innerText = 'Midtrans sedang memuat tampilan pembayaran.' },
+          onPending: () => {},
+          onSuccess: () => {},
+          onError: () => {},
         })
         return
       }
 
-      els.qrStage.innerHTML = '<p class="payment-empty-state">Menunggu QR code dari Midtrans...</p>'
-    }
-
-    function renderTimeoutAction(orderId) {
-      els.timeoutArea.innerHTML = `
-        <a class="payment-button payment-button-danger" href="${waLink(`Halo Kasir, waktu pembayaran pesanan ${ORDER_BADGE || `#${orderId}`} sudah habis. Mohon bantu batalkan pesanan.`)}" target="_blank" rel="noreferrer">
-          Batalkan Pesanan
-        </a>
-      `
-    }
-
-    function clearTimeoutAction() {
-      els.timeoutArea.innerHTML = ''
-    }
-
-    function stopTimers() {
-      if (state.timerId) window.clearInterval(state.timerId)
-      if (state.pollId) window.clearInterval(state.pollId)
-    }
-
-    function setDeadline(createdAt) {
-      state.deadline = (createdAt ? new Date(createdAt).getTime() : Date.now()) + 15 * 60 * 1000
-    }
-
-    function tickCountdown() {
-      const remaining = state.deadline - Date.now()
-      const formatted = formatCountdown(remaining)
-      els.countdown.innerText = formatted
-      els.sideTimer.innerText = formatted
-
-      const urgent = remaining > 0 && remaining < 3 * 60 * 1000
-      els.countdown.classList.toggle('is-urgent', urgent)
-      els.sideTimer.classList.toggle('is-urgent', urgent)
-
-      if (remaining <= 0 && !state.timedOut) {
-        state.timedOut = true
-        els.timerHelper.innerText = 'Waktu pembayaran habis.'
-        els.noteText.innerText = 'Waktu habis, silakan hubungi kasir.'
-        renderTimeoutAction(ORDER_ID)
-        stopTimers()
-      }
-    }
-
-    function renderOrder(data) {
-      const pesanan = data?.pesanan
-      const pembayaran = data?.pembayaran || {}
-      if (!pesanan) {
-        els.qrStage.innerHTML = '<p class="payment-empty-state">Pesanan tidak ditemukan.</p>'
-        els.noteText.innerText = 'Data pesanan belum tersedia.'
-        return
-      }
-
-      setDeadline(pesanan.created_at)
-      els.infoOrderNumber.innerText = `#${pesanan.id}`
-      els.infoTotal.innerText = money.format(Number(pesanan.total || 0))
-      els.infoTime.innerText = formatDateTime(pesanan.created_at)
-      els.infoCustomer.innerText = pesanan.customer_name || '-'
-      els.infoType.innerText = pesanan.tipe_pesanan === 'dine_in'
-        ? `Dine-in${pesanan.meja?.nomor_meja ? ` (Meja ${pesanan.meja.nomor_meja})` : ''}`
-        : pesanan.tipe_pesanan === 'delivery'
-          ? 'Delivery'
-          : 'Takeaway'
-
-      setStatusBadge(pembayaran.status || pesanan.status || 'pending')
-      renderMethods(pembayaran.metode === 'midtrans' ? 'qris' : (pembayaran.metode || 'qris'))
-      renderMenuRows(pesanan.detail_pesanan || [])
-      setWhatsappButton(pesanan.id)
-
-      const qrSource = buildQrSource(data)
-      renderQr(qrSource, pembayaran.snap_token)
-
-      if (['paid', 'settlement', 'capture'].includes(String(pembayaran.status || '').toLowerCase())) {
-        stopTimers()
-        clearTimeoutAction()
-        els.timerHelper.innerText = 'Pembayaran sudah berhasil diterima.'
-        els.noteText.innerText = 'Terima kasih, pesanan Anda sedang kami proses.'
-        window.setTimeout(() => {
-          window.location.href = `/pembayaran/sukses/${pesanan.id}`
-        }, 1200)
-        return
-      }
-
-      if (state.timedOut) {
-        renderTimeoutAction(pesanan.id)
-      } else {
-        clearTimeoutAction()
-      }
+      els.qrStage.innerHTML = '<p class="text-sm text-slate-500">Memuat QR code...</p>'
     }
 
     function loadSnapScript() {
       if (window.snap) return Promise.resolve()
       return new Promise((resolve, reject) => {
-        const existing = document.querySelector('script[data-midtrans-snap="true"]')
-        if (existing) {
-          existing.addEventListener('load', resolve, { once: true })
-          existing.addEventListener('error', reject, { once: true })
-          return
-        }
-
         const script = document.createElement('script')
-        script.dataset.midtransSnap = 'true'
         script.async = true
         script.src = MIDTRANS_IS_PRODUCTION ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js'
         script.setAttribute('data-client-key', MIDTRANS_CLIENT_KEY)
@@ -484,14 +379,36 @@ const orderBadge = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
       })
     }
 
-    async function refreshStatus(manual = false) {
-      if (state.timedOut && !manual) return
+    function renderOrder(data) {
+      const pesanan = data?.pesanan
+      const pembayaran = data?.pembayaran || {}
+      if (!pesanan) {
+        els.qrStage.innerHTML = '<p class="text-sm text-slate-500">Pesanan tidak ditemukan.</p>'
+        return
+      }
+
+      setDeadline(pesanan.created_at)
+      els.infoOrderNumber.innerText = `#${pesanan.id}`
+      els.infoCustomer.innerText = pesanan.customer_name || '-'
+      els.infoTime && (els.infoTime.innerText = formatDateTime(pesanan.created_at))
+      els.infoType && (els.infoType.innerText = pesanan.tipe_pesanan === 'dine_in' ? 'Dine-in' : pesanan.tipe_pesanan === 'delivery' ? 'Delivery' : 'Takeaway')
+      els.totalValue.innerText = money.format(Number(pesanan.total || 0))
+      renderMenuItems(pesanan.detail_pesanan || [])
+      setStatus(pembayaran.status || pesanan.status || 'pending')
+      setWhatsappButton(pesanan.id)
+      renderQr(pembayaran.qr_code || pembayaran.qr_url || pembayaran.redirect_url || data?.midtrans?.qr_url || data?.midtrans?.redirect_url, pembayaran.snap_token)
+
+      if (['paid', 'settlement', 'capture'].includes(String(pembayaran.status || '').toLowerCase())) {
+        window.location.href = `/pembayaran/sukses/${pesanan.id}`
+      }
+    }
+
+    async function refreshStatus() {
       try {
         const url = new URL('/api/cek-status', window.location.origin)
         url.searchParams.set('id', ORDER_ID)
         if (TESTING) url.searchParams.set('testing', '1')
-
-        const response = await fetch(url.toString(), { cache: 'no-store' })
+        const response = await fetch(url, { cache: 'no-store' })
         const data = await response.json()
 
         if (response.status === 404 || data?.not_found) {
@@ -511,560 +428,17 @@ const orderBadge = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
         renderOrder(data)
       } catch (error) {
         console.error(error)
-        els.noteText.innerText = 'Gagal memuat status pembayaran. Silakan coba lagi.'
+        els.noteText.innerText = 'Gagal memuat status pembayaran. Coba lagi sebentar.'
       }
     }
 
-    els.refreshButton.addEventListener('click', () => refreshStatus(true))
-
-    if (TESTING) {
-      els.noteText.innerText = 'Mode testing aktif.'
-    }
+    els.refreshButton.addEventListener('click', () => refreshStatus())
 
     state.timerId = window.setInterval(tickCountdown, 1000)
-    state.pollId = window.setInterval(() => refreshStatus(false), 5000)
+    state.pollId = window.setInterval(refreshStatus, 5000)
     tickCountdown()
 
-    if (TESTING) {
-      refreshStatus(true)
-    } else {
-      loadSnapScript().catch(() => {})
-      refreshStatus(true)
-    }
+    loadSnapScript().catch(() => {})
+    refreshStatus()
   </script>
-
-  <style>
-    :global(body) {
-      background: #fdf8f5;
-    }
-
-    .payment-page-shell {
-      min-height: 100vh;
-      padding: 2rem 1rem 3rem;
-      background:
-        radial-gradient(circle at top left, rgba(231, 111, 81, .14), transparent 28%),
-        radial-gradient(circle at top right, rgba(42, 157, 143, .12), transparent 24%),
-        #fdf8f5;
-    }
-
-    .payment-page {
-      max-width: 1180px;
-      margin: 0 auto;
-    }
-
-    .payment-hero {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-
-    .payment-eyebrow {
-      margin: 0 0 .35rem;
-      color: #e76f51;
-      font-size: .85rem;
-      font-weight: 800;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-    }
-
-    .payment-hero h1 {
-      margin: 0;
-      font-size: clamp(2rem, 3vw, 3rem);
-      line-height: 1.05;
-      color: #2b1f1a;
-    }
-
-    .payment-subtitle {
-      margin: .6rem 0 0;
-      color: rgba(43, 31, 26, .72);
-      max-width: 58ch;
-    }
-
-    .payment-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: .7rem;
-      align-items: center;
-    }
-
-    .payment-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: .5rem;
-      padding: .75rem 1rem;
-      border-radius: 999px;
-      font-size: .92rem;
-      font-weight: 800;
-      box-shadow: 0 10px 24px rgba(43, 31, 26, .08);
-    }
-
-    .payment-badge strong {
-      font-weight: 900;
-    }
-
-    .payment-badge-muted {
-      color: #2b1f1a;
-      background: rgba(255, 255, 255, .95);
-    }
-
-    .payment-badge-warning {
-      background: #fef3c7;
-      color: #92400e;
-      animation: paymentPulse 1.8s ease-in-out infinite;
-    }
-
-    .status-pending {
-      background: #fef3c7;
-      color: #92400e;
-      animation: paymentPulse 1.8s ease-in-out infinite;
-    }
-
-    .status-success {
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .status-danger {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .payment-announcement {
-      display: flex;
-      align-items: flex-start;
-      gap: .85rem;
-      padding: .95rem 1rem;
-      margin-bottom: 1rem;
-      background: #fef3c7;
-      border-left: 4px solid #f59e0b;
-      border-radius: .95rem;
-      color: #5c4211;
-      box-shadow: 0 10px 24px rgba(43, 31, 26, .06);
-    }
-
-    .payment-announcement p {
-      margin: 0;
-      font-size: .94rem;
-      line-height: 1.55;
-    }
-
-    .payment-announcement-icon {
-      flex: none;
-      width: 1.7rem;
-      height: 1.7rem;
-      display: grid;
-      place-items: center;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, .6);
-    }
-
-    .payment-announcement-block {
-      margin-bottom: 0;
-    }
-
-    .payment-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 360px;
-      gap: 1rem;
-      align-items: start;
-    }
-
-    .payment-column {
-      display: grid;
-      gap: 1rem;
-    }
-
-    .payment-side {
-      position: sticky;
-      top: 1rem;
-    }
-
-    .payment-card {
-      background: rgba(255, 255, 255, .98);
-      border: 1px solid rgba(43, 31, 26, .08);
-      border-radius: 1rem;
-      padding: 1rem;
-      box-shadow: 0 16px 36px rgba(43, 31, 26, .07);
-    }
-
-    .payment-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: .75rem;
-      margin-bottom: .9rem;
-    }
-
-    .payment-card-header-center {
-      justify-content: center;
-    }
-
-    .payment-card h2 {
-      margin: 0;
-      font-size: 1.05rem;
-      color: #2b1f1a;
-    }
-
-    .payment-mini-badge,
-    .payment-mini-note {
-      display: inline-flex;
-      align-items: center;
-      padding: .3rem .7rem;
-      border-radius: 999px;
-      font-size: .82rem;
-      font-weight: 800;
-      background: rgba(231, 111, 81, .08);
-      color: #e76f51;
-    }
-
-    .payment-mini-note {
-      background: rgba(42, 157, 143, .08);
-      color: #2a9d8f;
-    }
-
-    .payment-card-timer {
-      text-align: center;
-      background:
-        linear-gradient(180deg, rgba(231, 111, 81, .08), rgba(255, 255, 255, 0)),
-        rgba(255, 255, 255, .98);
-    }
-
-    .payment-card-label {
-      margin: 0 0 .45rem;
-      font-size: .78rem;
-      font-weight: 800;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: #e76f51;
-    }
-
-    .payment-countdown,
-    .payment-qr-timer {
-      font-size: clamp(2rem, 5vw, 3.4rem);
-      font-weight: 900;
-      letter-spacing: .04em;
-      color: #2b1f1a;
-    }
-
-    .payment-countdown.is-urgent,
-    .payment-qr-timer.is-urgent {
-      color: #dc2626;
-      animation: urgentPulse 1s ease-in-out infinite;
-    }
-
-    .payment-helper {
-      margin: .5rem 0 0;
-      color: rgba(43, 31, 26, .72);
-      font-size: .94rem;
-      line-height: 1.55;
-    }
-
-    .payment-info-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: .75rem;
-    }
-
-    .payment-info-item {
-      padding: .9rem;
-      border-radius: .95rem;
-      background: #fffaf7;
-      border: 1px solid rgba(43, 31, 26, .08);
-    }
-
-    .payment-info-item span {
-      display: block;
-      margin-bottom: .35rem;
-      font-size: .78rem;
-      font-weight: 800;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: rgba(43, 31, 26, .58);
-    }
-
-    .payment-info-item strong {
-      display: block;
-      font-size: .98rem;
-      color: #2b1f1a;
-    }
-
-    .payment-order-meta {
-      margin-top: .85rem;
-      display: grid;
-      gap: .4rem;
-      color: rgba(43, 31, 26, .82);
-    }
-
-    .payment-order-meta p {
-      margin: 0;
-      font-size: .95rem;
-      line-height: 1.5;
-    }
-
-    .payment-order-meta strong {
-      color: #2b1f1a;
-    }
-
-    .payment-table-wrap {
-      overflow-x: auto;
-      border: 1px solid rgba(43, 31, 26, .08);
-      border-radius: .95rem;
-    }
-
-    .payment-table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 420px;
-      background: #fff;
-    }
-
-    .payment-table th,
-    .payment-table td {
-      padding: .85rem .9rem;
-      border-bottom: 1px solid rgba(43, 31, 26, .08);
-      text-align: left;
-      font-size: .94rem;
-    }
-
-    .payment-table th {
-      background: #fff7f2;
-      color: #2b1f1a;
-      font-weight: 900;
-    }
-
-    .payment-empty-cell {
-      text-align: center !important;
-      color: rgba(43, 31, 26, .62);
-      font-size: .92rem;
-      padding: 1.1rem !important;
-    }
-
-    .payment-totals {
-      margin-top: .9rem;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: .75rem;
-      padding: .95rem;
-      border-radius: .95rem;
-      background: #fff7f2;
-      border: 1px solid rgba(231, 111, 81, .14);
-    }
-
-    .payment-totals span {
-      display: block;
-      margin-bottom: .3rem;
-      font-size: .78rem;
-      font-weight: 800;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: rgba(43, 31, 26, .6);
-    }
-
-    .payment-totals strong {
-      display: block;
-      color: #2b1f1a;
-      font-size: 1rem;
-    }
-
-    .payment-method-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: .75rem;
-    }
-
-    .method-card {
-      display: grid;
-      grid-template-columns: 42px 1fr;
-      gap: .75rem;
-      align-items: center;
-      padding: .85rem;
-      border-radius: .95rem;
-      background: #fffaf7;
-      border: 1px solid rgba(43, 31, 26, .08);
-    }
-
-    .method-card.is-active {
-      border-color: rgba(231, 111, 81, .45);
-      box-shadow: 0 14px 28px rgba(231, 111, 81, .11);
-      background: rgba(231, 111, 81, .08);
-    }
-
-    .method-icon {
-      width: 42px;
-      height: 42px;
-      display: grid;
-      place-items: center;
-      border-radius: .8rem;
-      background: rgba(231, 111, 81, .12);
-      font-size: 1.1rem;
-    }
-
-    .method-card strong {
-      display: block;
-      color: #2b1f1a;
-      font-size: .95rem;
-    }
-
-    .method-card p {
-      margin: .2rem 0 0;
-      color: rgba(43, 31, 26, .68);
-      font-size: .84rem;
-      line-height: 1.45;
-    }
-
-    .payment-steps {
-      margin: 0;
-      padding-left: 1.2rem;
-      color: #2b1f1a;
-      display: grid;
-      gap: .5rem;
-      line-height: 1.55;
-    }
-
-    .payment-actions {
-      display: grid;
-      gap: .7rem;
-    }
-
-    .payment-button {
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      padding: .95rem 1rem;
-      border-radius: .95rem;
-      font-weight: 900;
-      text-decoration: none;
-      border: 0;
-      cursor: pointer;
-      transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
-    }
-
-    .payment-button:hover {
-      transform: translateY(-1px);
-    }
-
-    .payment-button-primary {
-      background: #25d366;
-      color: #fff;
-      box-shadow: 0 14px 26px rgba(37, 211, 102, .22);
-    }
-
-    .payment-button-secondary {
-      background: #fff;
-      color: #2b1f1a;
-      border: 1px solid rgba(43, 31, 26, .12);
-    }
-
-    .payment-button-danger {
-      background: #ef4444;
-      color: #fff;
-      box-shadow: 0 14px 26px rgba(239, 68, 68, .18);
-    }
-
-    .payment-qr-card {
-      text-align: center;
-    }
-
-    .payment-qr-shell {
-      display: flex;
-      justify-content: center;
-      margin: .9rem 0;
-    }
-
-    .payment-qr-stage {
-      width: 300px;
-      min-height: 300px;
-      display: grid;
-      place-items: center;
-      padding: 1rem;
-      border-radius: 1rem;
-      background: #fff;
-      border: 2px dashed rgba(231, 111, 81, .45);
-      overflow: hidden;
-    }
-
-    .payment-qr-image {
-      width: 300px;
-      height: 300px;
-      display: block;
-      object-fit: contain;
-      border-radius: .75rem;
-    }
-
-    .payment-empty-state {
-      margin: 0;
-      color: rgba(43, 31, 26, .68);
-      font-size: .95rem;
-      line-height: 1.55;
-      text-align: center;
-    }
-
-    .payment-qr-caption {
-      margin: 0;
-      color: rgba(43, 31, 26, .72);
-      font-size: .92rem;
-      line-height: 1.55;
-    }
-
-    .payment-qr-actions {
-      margin-top: .85rem;
-      display: grid;
-      gap: .7rem;
-    }
-
-    #snap-embed {
-      width: 100%;
-    }
-
-    @keyframes paymentPulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.02); }
-    }
-
-    @keyframes urgentPulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: .72; }
-    }
-
-    @media (max-width: 980px) {
-      .payment-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .payment-side {
-        position: static;
-      }
-    }
-
-    @media (max-width: 720px) {
-      .payment-page-shell {
-        padding: 1rem .85rem 2rem;
-      }
-
-      .payment-hero {
-        flex-direction: column;
-      }
-
-      .payment-info-grid,
-      .payment-method-grid,
-      .payment-totals {
-        grid-template-columns: 1fr;
-      }
-
-      .payment-qr-stage {
-        width: 100%;
-        min-height: 280px;
-      }
-
-      .payment-qr-image {
-        width: 100%;
-        height: auto;
-        aspect-ratio: 1 / 1;
-      }
-    }
-  </style>
 </Layout>
