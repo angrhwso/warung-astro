@@ -39,17 +39,18 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
   currency: 'IDR',
   maximumFractionDigits: 0,
 }).format(Number(pesanan?.total || 0))
+const snapToken = pembayaran?.snap_token || ''
 ---
 
 <Layout title={`Pembayaran ${orderLabel}`}>
   <main class="min-h-screen bg-[#FDF8F5] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
     <section class="mx-auto max-w-7xl">
-      <header class="mb-6 flex flex-col gap-4 rounded-[1.75rem] border border-[#e76f51]/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(43,31,26,0.08)] backdrop-blur sm:p-6 lg:flex-row lg:items-end lg:justify-between">
+      <header class="mb-6 flex flex-col gap-4 rounded-[1.75rem] border border-[#e76f51]/10 bg-white/85 p-5 shadow-[0_18px_60px_rgba(43,31,26,0.08)] backdrop-blur sm:p-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p class="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#e76f51]">Pembayaran</p>
           <h1 class="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">🍜 Selesaikan Pembayaran</h1>
           <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-            Bayar pesanan Anda dengan QRIS, lalu tunggu konfirmasi otomatis dari sistem.
+            Lanjutkan pembayaran melalui transfer bank sementara, lalu status akan diperbarui otomatis.
           </p>
         </div>
 
@@ -65,7 +66,7 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
 
       <div class="mb-6 flex items-start gap-3 rounded-2xl border-l-4 border-[#F59E0B] bg-[#FEF3C7] px-4 py-3 text-sm leading-6 text-[#7c5a12] shadow-sm">
         <div class="text-base leading-none">ℹ️</div>
-        <p class="m-0">Saat ini pembayaran hanya QRIS. Metode lain sedang maintenance.</p>
+        <p class="m-0">Saat ini pembayaran hanya transfer bank. QRIS/GoPay sedang maintenance.</p>
       </div>
 
       <div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -137,74 +138,67 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
             <div class="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Metode Pembayaran</p>
-                <h2 class="mt-1 text-xl font-black text-slate-900">QRIS / GoPay</h2>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Transfer Bank</h2>
               </div>
-              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">Rekomendasi</span>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">Sementara</span>
             </div>
 
             <div class="grid gap-3 sm:grid-cols-2">
-              <button type="button" class="rounded-2xl border border-[#e76f51]/20 bg-[#fff7f2] px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                <span class="block text-sm font-black text-slate-900">QRIS</span>
-                <span class="mt-1 block text-xs leading-5 text-slate-600">Scan QR code dengan aplikasi pembayaran apa pun.</span>
-              </button>
-              <button type="button" class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                <span class="block text-sm font-black text-slate-900">GoPay</span>
-                <span class="mt-1 block text-xs leading-5 text-slate-600">Pembayaran cepat melalui dompet digital.</span>
-              </button>
+              <div class="rounded-2xl border border-[#e76f51]/20 bg-[#fff7f2] px-4 py-3 shadow-sm">
+                <span class="block text-sm font-black text-slate-900">Bank Transfer</span>
+                <span class="mt-1 block text-xs leading-5 text-slate-600">BCA, BNI, BRI, Mandiri.</span>
+              </div>
+              <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <span class="block text-sm font-black text-slate-900">Status</span>
+                <span class="mt-1 block text-xs leading-5 text-slate-600">Instruksi pembayaran muncul via Midtrans Snap.</span>
+              </div>
             </div>
           </article>
 
           <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
             <div class="mb-4 text-center">
-              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">QR Code</p>
-              <h2 class="mt-1 text-xl font-black text-slate-900">Scan untuk bayar</h2>
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Transfer Bank</p>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Buka instruksi pembayaran</h2>
             </div>
 
-            <div class="mx-auto flex w-full max-w-[250px] items-center justify-center rounded-[1.25rem] border-2 border-dashed border-[#e76f51] bg-white p-4 shadow-sm">
-              <div id="qrStage" class="flex h-[250px] w-[250px] items-center justify-center rounded-2xl bg-white">
-                <p class="text-sm text-slate-500">Memuat QR code...</p>
+            <div class="rounded-[1.25rem] border-2 border-dashed border-[#e76f51] bg-white p-4 shadow-sm">
+              <div class="flex flex-col gap-4 rounded-2xl bg-[#FDF8F5] p-4 ring-1 ring-slate-200">
+                <div class="flex items-start gap-3">
+                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#e76f51] text-white">1</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">Klik tombol buka pembayaran</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">Midtrans akan menampilkan detail transfer bank.</p>
+                  </div>
+                </div>
+                <div class="flex items-start gap-3">
+                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#e76f51] text-white">2</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">Pilih bank yang tersedia</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">BCA, BNI, BRI, atau Mandiri.</p>
+                  </div>
+                </div>
+                <div class="flex items-start gap-3">
+                  <span class="grid h-9 w-9 place-items-center rounded-full bg-[#2A9D8F] text-white">3</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">Selesaikan transfer</strong>
+                    <p class="m-0 text-xs leading-5 text-slate-600">Status akan ter-update otomatis setelah transfer berhasil.</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div class="mt-4 flex flex-col items-center gap-2 text-center">
-              <div class="text-2xl">📷</div>
-              <p class="text-sm leading-6 text-slate-600">
-                Scan QR code dengan GoPay, OVO, atau DANA
-              </p>
-            </div>
-
-            <ol class="mt-5 grid gap-3">
-              <li class="flex gap-3 rounded-2xl bg-[#FDF8F5] p-3 ring-1 ring-slate-200">
-                <span class="grid h-8 w-8 place-items-center rounded-full bg-[#e76f51] text-sm font-black text-white">1</span>
-                <div>
-                  <strong class="block text-sm text-slate-900">Buka aplikasi pembayaran</strong>
-                  <p class="m-0 text-xs leading-5 text-slate-600">Gunakan aplikasi dompet digital yang mendukung QRIS.</p>
-                </div>
-              </li>
-              <li class="flex gap-3 rounded-2xl bg-[#FDF8F5] p-3 ring-1 ring-slate-200">
-                <span class="grid h-8 w-8 place-items-center rounded-full bg-[#e76f51] text-sm font-black text-white">2</span>
-                <div>
-                  <strong class="block text-sm text-slate-900">Scan QR code</strong>
-                  <p class="m-0 text-xs leading-5 text-slate-600">Arahkan kamera ke QR code yang tampil di halaman ini.</p>
-                </div>
-              </li>
-              <li class="flex gap-3 rounded-2xl bg-[#FDF8F5] p-3 ring-1 ring-slate-200">
-                <span class="grid h-8 w-8 place-items-center rounded-full bg-[#2A9D8F] text-sm font-black text-white">3</span>
-                <div>
-                  <strong class="block text-sm text-slate-900">Konfirmasi dan tunggu sukses</strong>
-                  <p class="m-0 text-xs leading-5 text-slate-600">Setelah berhasil, status akan berubah otomatis.</p>
-                </div>
-              </li>
-            </ol>
-
             <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+              <button id="openPaymentButton" type="button" class="inline-flex items-center justify-center rounded-2xl bg-[#e76f51] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(231,111,81,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50">
+                💳 Buka Instruksi Transfer
+              </button>
               <button id="refreshButton" type="button" class="inline-flex items-center justify-center rounded-2xl border border-[#e76f51] px-4 py-3 text-sm font-black text-[#e76f51] transition hover:bg-[#e76f51] hover:text-white">
                 🔄 Cek Status Pembayaran
               </button>
-              <a id="whatsappButton" href="#" target="_blank" rel="noreferrer" class="inline-flex items-center justify-center rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(37,211,102,0.22)] transition hover:-translate-y-0.5">
-                💬 Hubungi Kasir
-              </a>
             </div>
+
+            <a id="whatsappButton" href="#" target="_blank" rel="noreferrer" class="mt-3 inline-flex w-full items-center justify-center rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(37,211,102,0.22)] transition hover:-translate-y-0.5">
+              💬 Hubungi Kasir
+            </a>
           </article>
         </aside>
       </div>
@@ -224,7 +218,7 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
     const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
     const MIDTRANS_CLIENT_KEY = ${JSON.stringify(midtransClientKey)}
     const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(midtransProduction)}
-    const SNAP_TOKEN = ${JSON.stringify(pembayaran?.snap_token || '')}
+    const SNAP_TOKEN = ${JSON.stringify(snapToken)}
 
     const money = new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -234,13 +228,12 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
 
     const els = {
       statusBadge: document.getElementById('statusBadge'),
-      qrStage: document.getElementById('qrStage'),
       refreshButton: document.getElementById('refreshButton'),
+      openPaymentButton: document.getElementById('openPaymentButton'),
       whatsappButton: document.getElementById('whatsappButton'),
       noteText: document.getElementById('noteText'),
       timeoutArea: document.getElementById('timeoutArea'),
       infoOrderNumber: document.getElementById('infoOrderNumber'),
-      infoCustomer: document.getElementById('infoCustomer'),
     }
 
     const state = {
@@ -248,7 +241,7 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
       timerId: null,
       pollId: null,
       timedOut: false,
-      retries404: 0,
+      paymentOpened: false,
     }
 
     function normalizePhone(value) {
@@ -289,8 +282,7 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
     function tickCountdown() {
       const remaining = state.deadline - Date.now()
       const timerValue = formatCountdown(remaining)
-      const nodes = document.querySelectorAll('[data-countdown]')
-      nodes.forEach((node) => {
+      document.querySelectorAll('[data-countdown]').forEach((node) => {
         node.textContent = timerValue
         node.style.color = remaining < 2 * 60 * 1000 ? '#ef4444' : remaining < 5 * 60 * 1000 ? '#f59e0b' : '#2A9D8F'
       })
@@ -308,31 +300,6 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
       }
     }
 
-    function renderQr() {
-      if (!SNAP_TOKEN) {
-        els.qrStage.innerHTML = '<p class="text-sm text-slate-500">QR belum tersedia.</p>'
-        return
-      }
-
-      const loading = document.createElement('div')
-      loading.className = 'text-center text-sm text-slate-500'
-      loading.textContent = 'Membuka pembayaran Midtrans...'
-      els.qrStage.innerHTML = ''
-      els.qrStage.appendChild(loading)
-
-      if (window.snap?.pay) {
-        window.snap.pay(SNAP_TOKEN, {
-          onSuccess: () => { window.location.href = `/pembayaran/sukses/${ORDER_ID}` },
-          onPending: () => { els.noteText.innerText = 'Menunggu konfirmasi pembayaran.' },
-          onError: () => { els.noteText.innerText = 'Gagal membuka Midtrans Snap.' },
-          onClose: () => { els.noteText.innerText = 'Tampilan pembayaran ditutup.' },
-        })
-        return
-      }
-
-      els.qrStage.innerHTML = '<p class="text-sm text-slate-500">Midtrans Snap belum siap.</p>'
-    }
-
     function loadSnapScript() {
       if (window.snap) return Promise.resolve()
       return new Promise((resolve, reject) => {
@@ -346,6 +313,38 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
       })
     }
 
+    function openPayment() {
+      if (!SNAP_TOKEN) {
+        els.noteText.innerText = 'Token pembayaran belum tersedia.'
+        return
+      }
+
+      loadSnapScript()
+        .then(() => {
+          if (!window.snap?.pay) throw new Error('Snap Midtrans belum siap')
+          state.paymentOpened = true
+          window.snap.pay(SNAP_TOKEN, {
+            onSuccess: () => {
+              window.location.href = `/pembayaran/sukses/${ORDER_ID}`
+            },
+            onPending: () => {
+              els.noteText.innerText = 'Menunggu konfirmasi transfer bank.'
+            },
+            onError: () => {
+              els.noteText.innerText = 'Gagal membuka instruksi transfer bank.'
+            },
+            onClose: () => {
+              if (!state.paymentOpened) return
+              els.noteText.innerText = 'Instruksi pembayaran ditutup. Silakan buka lagi jika perlu.'
+            },
+          })
+        })
+        .catch((error) => {
+          console.error(error)
+          els.noteText.innerText = 'Gagal memuat Midtrans Snap.'
+        })
+    }
+
     async function refreshStatus() {
       try {
         const url = new URL('/api/cek-status', window.location.origin)
@@ -355,10 +354,7 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
         const data = await response.json()
 
         if (response.status === 404 || data?.not_found) {
-          state.retries404 += 1
-          if (state.retries404 >= 10) {
-            els.noteText.innerText = 'Transaksi belum ditemukan di Midtrans. Status dianggap pending.'
-          }
+          els.noteText.innerText = 'Transaksi belum ditemukan di Midtrans. Status dianggap pending.'
           return
         }
 
@@ -366,7 +362,6 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
         const pembayaran = data?.pembayaran
         if (pesanan) {
           els.infoOrderNumber.innerText = `#${pesanan.id}`
-          els.infoCustomer.innerText = pesanan.customer_name || '-'
         }
         if (pembayaran?.status) setStatus(pembayaran.status)
         if (['paid', 'settlement', 'capture'].includes(String(pembayaran?.status || '').toLowerCase())) {
@@ -379,15 +374,12 @@ const totalRupiah = new Intl.NumberFormat('id-ID', {
     }
 
     els.refreshButton.addEventListener('click', () => refreshStatus())
+    els.openPaymentButton.addEventListener('click', openPayment)
     setWhatsappButton(ORDER_ID)
 
     state.timerId = window.setInterval(tickCountdown, 1000)
     state.pollId = window.setInterval(refreshStatus, 5000)
     tickCountdown()
-
-    loadSnapScript().then(renderQr).catch(() => {
-      els.qrStage.innerHTML = '<p class="text-sm text-slate-500">Gagal memuat Midtrans Snap.</p>'
-    })
     refreshStatus()
   </script>
 </Layout>
