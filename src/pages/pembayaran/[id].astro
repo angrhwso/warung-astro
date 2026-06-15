@@ -216,6 +216,11 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || redi
     const MIDTRANS_CLIENT_KEY = ${JSON.stringify(import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '')}
     const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true')}
 
+
+    console.log('🔍 SNAP_TOKEN:', SNAP_TOKEN);
+    console.log('🔍 DEADLINE_TIMESTAMP:', DEADLINE_TIMESTAMP);
+    console.log('🔍 CLIENT_KEY:', MIDTRANS_CLIENT_KEY);
+
     const money = new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
