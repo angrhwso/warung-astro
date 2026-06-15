@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
 
-const FULL_DURATION = 15 * 60
-
 function pad(value) {
   return String(value).padStart(2, '0')
 }
@@ -14,24 +12,30 @@ function formatSeconds(totalSeconds) {
 }
 
 function getTone(remainingSeconds) {
-  if (remainingSeconds < 2 * 60) return { ring: '#ef4444', text: '#ef4444', label: 'Hampir habis' }
-  if (remainingSeconds < 5 * 60) return { ring: '#f59e0b', text: '#f59e0b', label: 'Segera bayar' }
+  if (remainingSeconds < 2 * 60) {
+    return { ring: '#ef4444', text: '#ef4444', label: 'Hampir habis' }
+  }
+
+  if (remainingSeconds < 5 * 60) {
+    return { ring: '#f59e0b', text: '#f59e0b', label: 'Segera bayar' }
+  }
+
   return { ring: '#2A9D8F', text: '#2A9D8F', label: 'Aman' }
 }
 
-export default function PaymentCountdown({ deadline, onExpire }) {
-  const initialRemaining = useMemo(() => {
-    if (!deadline) return FULL_DURATION
-    return Math.max(0, Math.floor((new Date(deadline).getTime() - Date.now()) / 1000))
-  }, [deadline])
+export default function PaymentCountdown({ createdAt, onExpire, className = '' }) {
+  const initialDeadline = useMemo(() => {
+    const base = createdAt ? new Date(createdAt).getTime() : Date.now()
+    return base + 15 * 60 * 1000
+  }, [createdAt])
 
-  const [remaining, setRemaining] = useState(initialRemaining)
+  const [remaining, setRemaining] = useState(() => {
+    return Math.max(0, Math.floor((initialDeadline - Date.now()) / 1000))
+  })
 
   useEffect(() => {
-    if (!deadline) return undefined
-
     const tick = () => {
-      const next = Math.max(0, Math.floor((new Date(deadline).getTime() - Date.now()) / 1000))
+      const next = Math.max(0, Math.floor((initialDeadline - Date.now()) / 1000))
       setRemaining(next)
       if (next === 0 && onExpire) onExpire()
     }
@@ -39,15 +43,15 @@ export default function PaymentCountdown({ deadline, onExpire }) {
     tick()
     const id = window.setInterval(tick, 1000)
     return () => window.clearInterval(id)
-  }, [deadline, onExpire])
+  }, [initialDeadline, onExpire])
 
   const tone = getTone(remaining)
-  const pct = Math.max(0, Math.min(100, (remaining / FULL_DURATION) * 100))
+  const pct = Math.max(0, Math.min(100, (remaining / (15 * 60)) * 100))
   const circumference = 2 * Math.PI * 54
   const dash = circumference - (pct / 100) * circumference
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className={`flex flex-col items-center gap-3 ${className}`.trim()}>
       <div className="relative h-56 w-56 sm:h-64 sm:w-64">
         <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
           <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(43,31,26,0.08)" strokeWidth="8" />

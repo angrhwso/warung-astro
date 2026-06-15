@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro'
 import ConfettiEffect from '../../components/ConfettiEffect.jsx'
 import PaymentCountdown from '../../components/PaymentCountdown.jsx'
+import { supabaseAdmin } from '../../lib/supabase'
 
 const id = Astro.params.id
 const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
@@ -9,6 +10,35 @@ const testing = Astro.url.searchParams.get('testing') === '1'
 const midtransClientKey = import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || ''
 const midtransProduction = String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true'
 const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
+
+let pesanan = null
+let pembayaran = null
+
+if (supabaseAdmin) {
+  const [{ data: orderData }, { data: paymentData }] = await Promise.all([
+    supabaseAdmin
+      .from('pesanan')
+      .select('id, total, status, created_at, customer_name, tipe_pesanan, detail_pesanan(id, jumlah, harga_saat_pesan, catatan_item, menu(id, nama, harga, gambar_url))')
+      .eq('id', Number(id))
+      .maybeSingle(),
+    supabaseAdmin
+      .from('pembayaran')
+      .select('*')
+      .eq('id_pesanan', Number(id))
+      .maybeSingle(),
+  ])
+
+  pesanan = orderData
+  pembayaran = paymentData
+}
+
+const menuItems = pesanan?.detail_pesanan || []
+const createdAt = pesanan?.created_at || new Date().toISOString()
+const totalRupiah = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0,
+}).format(Number(pesanan?.total || 0))
 ---
 
 <Layout title={`Pembayaran ${orderLabel}`}>
@@ -46,10 +76,10 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
                 <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Timer</p>
                 <h2 class="mt-1 text-xl font-black text-slate-900">Waktu Pembayaran</h2>
               </div>
-              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">Aman jika di bawah 15 menit</span>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">15 menit</span>
             </div>
             <div class="flex justify-center">
-              <PaymentCountdown client:load />
+              <PaymentCountdown client:load createdAt={createdAt} />
             </div>
             <p class="mt-4 text-center text-sm text-slate-600">Timer berdetak halus. Hijau saat aman, kuning saat mendekati batas, merah saat hampir habis.</p>
           </article>
@@ -64,20 +94,39 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
             </div>
 
             <div class="overflow-hidden rounded-2xl border border-slate-200">
-              <div class="hidden grid-cols-[72px_1fr_auto] gap-4 bg-[#fff7f2] px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-600 sm:grid">
+              <div class="grid grid-cols-[72px_1fr_auto] gap-4 bg-[#fff7f2] px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-600">
                 <span>Foto</span>
                 <span>Menu</span>
                 <span class="text-right">Harga</span>
               </div>
               <div id="menuList" class="divide-y divide-slate-200">
-                <div class="px-4 py-6 text-center text-sm text-slate-500">Memuat detail pesanan...</div>
+                {menuItems.length ? menuItems.map((item) => (
+                  <div class="grid grid-cols-[72px_1fr_auto] items-center gap-4 px-4 py-4">
+                    <div class="overflow-hidden rounded-2xl bg-[#FDF8F5] ring-1 ring-slate-200">
+                      {item.menu?.gambar_url ? (
+                        <img src={item.menu.gambar_url} alt={item.menu?.nama || 'Menu'} class="h-[72px] w-[72px] object-cover" />
+                      ) : (
+                        <div class="flex h-[72px] w-[72px] items-center justify-center text-xs font-bold text-slate-500">Menu</div>
+                      )}
+                    </div>
+                    <div>
+                      <strong class="block text-sm font-black text-slate-900">{item.menu?.nama || `Menu #${item.id_menu}`}</strong>
+                      <span class="mt-1 inline-flex rounded-full bg-[#2A9D8F]/10 px-2 py-1 text-xs font-semibold text-[#2A9D8F]">Qty {item.jumlah}</span>
+                    </div>
+                    <div class="text-right text-sm font-black text-slate-900">
+                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(item.harga_saat_pesan || 0) * Number(item.jumlah || 0))}
+                    </div>
+                  </div>
+                )) : (
+                  <div class="px-4 py-6 text-center text-sm text-slate-500">Detail pesanan belum tersedia.</div>
+                )}
               </div>
             </div>
 
             <div class="mt-4 rounded-2xl bg-[#fff7f2] p-4 ring-1 ring-[#e76f51]/10">
               <div class="flex items-center justify-between gap-3">
                 <span class="text-sm font-bold text-slate-600">Total Harga</span>
-                <strong id="totalValue" class="text-2xl font-black tracking-tight text-slate-900">-</strong>
+                <strong id="totalValue" class="text-2xl font-black tracking-tight text-slate-900">{totalRupiah}</strong>
               </div>
             </div>
           </article>
@@ -157,23 +206,6 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
               </a>
             </div>
           </article>
-
-          <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_rgba(43,31,26,0.08)] ring-1 ring-slate-200/70 sm:p-6">
-            <div class="flex items-center justify-between gap-3">
-              <h2 class="text-lg font-black text-slate-900">Info Pesanan</h2>
-              <span class="inline-flex animate-pulse items-center rounded-full bg-[#FEF3C7] px-3 py-1 text-xs font-bold text-[#92400e]">Menunggu Pembayaran</span>
-            </div>
-            <dl class="mt-4 grid gap-3 text-sm text-slate-600">
-              <div class="flex items-center justify-between gap-4 rounded-2xl bg-[#FDF8F5] px-4 py-3 ring-1 ring-slate-200">
-                <dt class="font-semibold">Order ID</dt>
-                <dd id="infoOrderNumber" class="font-black text-slate-900">-</dd>
-              </div>
-              <div class="flex items-center justify-between gap-4 rounded-2xl bg-[#FDF8F5] px-4 py-3 ring-1 ring-slate-200">
-                <dt class="font-semibold">Customer</dt>
-                <dd id="infoCustomer" class="font-black text-slate-900">-</dd>
-              </div>
-            </dl>
-          </article>
         </aside>
       </div>
 
@@ -192,6 +224,7 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
     const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
     const MIDTRANS_CLIENT_KEY = ${JSON.stringify(midtransClientKey)}
     const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(midtransProduction)}
+    const SNAP_TOKEN = ${JSON.stringify(pembayaran?.snap_token || '')}
 
     const money = new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -204,44 +237,18 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
       qrStage: document.getElementById('qrStage'),
       refreshButton: document.getElementById('refreshButton'),
       whatsappButton: document.getElementById('whatsappButton'),
-      menuList: document.getElementById('menuList'),
-      totalValue: document.getElementById('totalValue'),
-      infoOrderNumber: document.getElementById('infoOrderNumber'),
-      infoCustomer: document.getElementById('infoCustomer'),
       noteText: document.getElementById('noteText'),
       timeoutArea: document.getElementById('timeoutArea'),
-      infoStatus: document.getElementById('infoStatus'),
-      infoTime: document.getElementById('infoTime'),
-      infoType: document.getElementById('infoType'),
+      infoOrderNumber: document.getElementById('infoOrderNumber'),
+      infoCustomer: document.getElementById('infoCustomer'),
     }
 
     const state = {
-      deadline: Date.now() + 15 * 60 * 1000,
+      deadline: new Date(${JSON.stringify(createdAt)}).getTime() + 15 * 60 * 1000,
       timerId: null,
       pollId: null,
       timedOut: false,
       retries404: 0,
-    }
-
-    function escapeHtml(value) {
-      return String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;')
-    }
-
-    function formatDateTime(value) {
-      if (!value) return '-'
-      return new Intl.DateTimeFormat('id-ID', {
-        weekday: 'long',
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(new Date(value))
     }
 
     function normalizePhone(value) {
@@ -270,12 +277,6 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
         expired: 'Waktu Habis',
       }
       els.statusBadge.innerText = map[value] || 'Menunggu Pembayaran'
-      els.infoStatus && (els.infoStatus.innerText = map[value] || 'Menunggu Pembayaran')
-    }
-
-    function setDeadline(createdAt) {
-      const base = createdAt ? new Date(createdAt).getTime() : Date.now()
-      state.deadline = base + 15 * 60 * 1000
     }
 
     function formatCountdown(ms) {
@@ -288,14 +289,10 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
     function tickCountdown() {
       const remaining = state.deadline - Date.now()
       const timerValue = formatCountdown(remaining)
-      const tone = remaining < 2 * 60 ? '#ef4444' : remaining < 5 * 60 * 1000 ? '#f59e0b' : '#2A9D8F'
-      els.statusBadge.classList.toggle('animate-pulse', remaining > 0)
-      els.statusBadge.style.backgroundColor = remaining > 0 ? '#FEF3C7' : '#FEE2E2'
-      els.statusBadge.style.color = remaining > 0 ? '#92400e' : '#991b1b'
-      const countdownNodes = document.querySelectorAll('[data-countdown]')
-      countdownNodes.forEach((node) => {
+      const nodes = document.querySelectorAll('[data-countdown]')
+      nodes.forEach((node) => {
         node.textContent = timerValue
-        node.style.color = tone
+        node.style.color = remaining < 2 * 60 * 1000 ? '#ef4444' : remaining < 5 * 60 * 1000 ? '#f59e0b' : '#2A9D8F'
       })
 
       if (remaining <= 0 && !state.timedOut) {
@@ -311,59 +308,29 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
       }
     }
 
-    function renderMenuItems(items = []) {
-      if (!items.length) {
-        els.menuList.innerHTML = '<div class="px-4 py-6 text-center text-sm text-slate-500">Detail pesanan belum tersedia.</div>'
+    function renderQr() {
+      if (!SNAP_TOKEN) {
+        els.qrStage.innerHTML = '<p class="text-sm text-slate-500">QR belum tersedia.</p>'
         return
       }
 
-      els.menuList.innerHTML = items.map((item) => {
-        const nama = item.menu?.nama || `Menu #${item.id_menu}`
-        const jumlah = Number(item.jumlah || 0)
-        const harga = Number(item.harga_saat_pesan || 0)
-        const total = jumlah * harga
-        const image = item.menu?.gambar_url
-        return `
-          <div class="grid grid-cols-[72px_1fr_auto] items-center gap-4 px-4 py-4">
-            <div class="overflow-hidden rounded-2xl bg-[#FDF8F5] ring-1 ring-slate-200">
-              ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(nama)}" class="h-18 w-18 object-cover" />` : '<div class="flex h-18 w-18 items-center justify-center text-xs font-bold text-slate-500">Menu</div>'}
-            </div>
-            <div>
-              <strong class="block text-sm font-black text-slate-900">${escapeHtml(nama)}</strong>
-              <span class="mt-1 inline-flex rounded-full bg-[#2A9D8F]/10 px-2 py-1 text-xs font-semibold text-[#2A9D8F]">Qty ${jumlah}</span>
-            </div>
-            <div class="text-right text-sm font-black text-slate-900">${money.format(total)}</div>
-          </div>
-        `
-      }).join('')
-    }
+      const loading = document.createElement('div')
+      loading.className = 'text-center text-sm text-slate-500'
+      loading.textContent = 'Membuka pembayaran Midtrans...'
+      els.qrStage.innerHTML = ''
+      els.qrStage.appendChild(loading)
 
-    function renderQr(source, snapToken) {
-      if (source) {
-        els.qrStage.innerHTML = `
-          <img
-            src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(source)}"
-            alt="QR code pembayaran"
-            class="h-[250px] w-[250px] rounded-2xl object-contain"
-            width="250"
-            height="250"
-          />
-        `
-        return
-      }
-
-      if (snapToken && window.snap?.embed) {
-        els.qrStage.innerHTML = '<div id="snap-embed" class="w-full"></div>'
-        window.snap.embed(snapToken, {
-          embedId: 'snap-embed',
-          onPending: () => {},
-          onSuccess: () => {},
-          onError: () => {},
+      if (window.snap?.pay) {
+        window.snap.pay(SNAP_TOKEN, {
+          onSuccess: () => { window.location.href = `/pembayaran/sukses/${ORDER_ID}` },
+          onPending: () => { els.noteText.innerText = 'Menunggu konfirmasi pembayaran.' },
+          onError: () => { els.noteText.innerText = 'Gagal membuka Midtrans Snap.' },
+          onClose: () => { els.noteText.innerText = 'Tampilan pembayaran ditutup.' },
         })
         return
       }
 
-      els.qrStage.innerHTML = '<p class="text-sm text-slate-500">Memuat QR code...</p>'
+      els.qrStage.innerHTML = '<p class="text-sm text-slate-500">Midtrans Snap belum siap.</p>'
     }
 
     function loadSnapScript() {
@@ -379,30 +346,6 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
       })
     }
 
-    function renderOrder(data) {
-      const pesanan = data?.pesanan
-      const pembayaran = data?.pembayaran || {}
-      if (!pesanan) {
-        els.qrStage.innerHTML = '<p class="text-sm text-slate-500">Pesanan tidak ditemukan.</p>'
-        return
-      }
-
-      setDeadline(pesanan.created_at)
-      els.infoOrderNumber.innerText = `#${pesanan.id}`
-      els.infoCustomer.innerText = pesanan.customer_name || '-'
-      els.infoTime && (els.infoTime.innerText = formatDateTime(pesanan.created_at))
-      els.infoType && (els.infoType.innerText = pesanan.tipe_pesanan === 'dine_in' ? 'Dine-in' : pesanan.tipe_pesanan === 'delivery' ? 'Delivery' : 'Takeaway')
-      els.totalValue.innerText = money.format(Number(pesanan.total || 0))
-      renderMenuItems(pesanan.detail_pesanan || [])
-      setStatus(pembayaran.status || pesanan.status || 'pending')
-      setWhatsappButton(pesanan.id)
-      renderQr(pembayaran.qr_code || pembayaran.qr_url || pembayaran.redirect_url || data?.midtrans?.qr_url || data?.midtrans?.redirect_url, pembayaran.snap_token)
-
-      if (['paid', 'settlement', 'capture'].includes(String(pembayaran.status || '').toLowerCase())) {
-        window.location.href = `/pembayaran/sukses/${pesanan.id}`
-      }
-    }
-
     async function refreshStatus() {
       try {
         const url = new URL('/api/cek-status', window.location.origin)
@@ -413,19 +356,22 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
 
         if (response.status === 404 || data?.not_found) {
           state.retries404 += 1
-          if (data?.pesanan) {
-            renderOrder({
-              ...data,
-              pembayaran: data.pembayaran || { status: 'pending', metode: 'midtrans' },
-            })
-          }
           if (state.retries404 >= 10) {
             els.noteText.innerText = 'Transaksi belum ditemukan di Midtrans. Status dianggap pending.'
           }
           return
         }
 
-        renderOrder(data)
+        const pesanan = data?.pesanan
+        const pembayaran = data?.pembayaran
+        if (pesanan) {
+          els.infoOrderNumber.innerText = `#${pesanan.id}`
+          els.infoCustomer.innerText = pesanan.customer_name || '-'
+        }
+        if (pembayaran?.status) setStatus(pembayaran.status)
+        if (['paid', 'settlement', 'capture'].includes(String(pembayaran?.status || '').toLowerCase())) {
+          window.location.href = `/pembayaran/sukses/${pesanan.id}`
+        }
       } catch (error) {
         console.error(error)
         els.noteText.innerText = 'Gagal memuat status pembayaran. Coba lagi sebentar.'
@@ -433,12 +379,15 @@ const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
     }
 
     els.refreshButton.addEventListener('click', () => refreshStatus())
+    setWhatsappButton(ORDER_ID)
 
     state.timerId = window.setInterval(tickCountdown, 1000)
     state.pollId = window.setInterval(refreshStatus, 5000)
     tickCountdown()
 
-    loadSnapScript().catch(() => {})
+    loadSnapScript().then(renderQr).catch(() => {
+      els.qrStage.innerHTML = '<p class="text-sm text-slate-500">Gagal memuat Midtrans Snap.</p>'
+    })
     refreshStatus()
   </script>
 </Layout>
