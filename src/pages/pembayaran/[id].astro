@@ -217,6 +217,12 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 
     window.DEADLINE_TIMESTAMP = DEADLINE_TIMESTAMP
 
+    const currentUrl = new URL(window.location.href)
+    if (currentUrl.searchParams.has('snapToken') || currentUrl.searchParams.has('redirectUrl')) {
+      currentUrl.search = currentUrl.searchParams.get('testing') === '1' ? '?testing=1' : ''
+      window.location.replace(currentUrl.toString())
+    }
+
     const money = new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
