@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 const SESSION_KEY = 'warung-customer-session'
 
@@ -23,13 +23,20 @@ function loadSession() {
 }
 
 export default function LoginOTP() {
-  const initialSession = useMemo(() => loadSession(), [])
-  const [phone, setPhone] = useState(initialSession?.phone || '')
+  const [initialSession, setInitialSession] = useState(null)
+  const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
-  const [step, setStep] = useState(initialSession ? 'verified' : 'phone')
+  const [step, setStep] = useState('phone')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
+
+  useEffect(() => {
+    const session = loadSession()
+    setInitialSession(session)
+    if (session?.phone) setPhone(session.phone)
+    if (session) setStep('verified')
+  }, [])
 
   useEffect(() => {
     if (!countdown) return undefined
