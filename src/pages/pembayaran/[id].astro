@@ -2,57 +2,46 @@
 import Layout from '../../layouts/Layout.astro'
 import { supabaseAdmin } from '../../lib/supabase'
 
-const id = Astro.params.id
+const idParam = Astro.params.id
+const id = Number(idParam)
 const isDev = import.meta.env.DEV === true
-const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || import.meta.env.ADMIN_WHATSAPP_NUMBER || ''
 const testing = Astro.url.searchParams.get('testing') === '1'
-const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
+const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || import.meta.env.ADMIN_WHATSAPP_NUMBER || ''
 
 if (Astro.url.searchParams.has('snapToken') || Astro.url.searchParams.has('redirectUrl')) {
   return Astro.redirect(`/pembayaran/${id}${testing ? '?testing=1' : ''}`)
 }
 
-let pesanan = null
-let pembayaran = null
-
-if (supabaseAdmin) {
-  const [{ data: orderData }, { data: paymentData }] = await Promise.all([
-    supabaseAdmin
+const { data: pesanan } = supabaseAdmin
+  ? await supabaseAdmin
       .from('pesanan')
-      .select('id, total, status, created_at, customer_name, tipe_pesanan, detail_pesanan(id, jumlah, harga_saat_pesan, menu(id, nama, gambar_url))')
-      .eq('id', Number(id))
-      .maybeSingle(),
-    supabaseAdmin
-      .from('pembayaran')
-      .select('*')
-      .eq('id_pesanan', Number(id))
-      .maybeSingle(),
-  ])
+      .select('*, detail_pesanan(*, menu(*)), pembayaran(snap_token, status)')
+      .eq('id', id)
+      .maybeSingle()
+  : { data: null }
 
-  pesanan = orderData
-  pembayaran = paymentData
-}
-
+const paymentRaw = pesanan?.pembayaran
+const pembayaran = Array.isArray(paymentRaw) ? paymentRaw[0] : paymentRaw
+const snapToken = pembayaran?.snap_token || ''
+const paymentStatus = pembayaran?.status || 'pending'
 const menuItems = pesanan?.detail_pesanan || []
 const createdAt = pesanan?.created_at || null
-const createdAtTimestamp = createdAt ? Date.parse(createdAt) : null
-const deadlineTimestamp = createdAtTimestamp ? createdAtTimestamp + 15 * 60 * 1000 : null
+const deadlineTimestamp = createdAt ? Date.parse(createdAt) + 15 * 60 * 1000 : null
 const totalRupiah = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR',
   maximumFractionDigits: 0,
 }).format(Number(pesanan?.total || 0))
-const snapToken = pembayaran?.snap_token || ''
-const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
+const orderLabel = String(idParam).startsWith('ORD-') ? `#${idParam}` : `#ORD-${idParam}`
 ---
 
 <Layout title={`Pembayaran ${orderLabel}`}>
   <div
     id="payment-config"
     hidden
-    data-order-id={id}
+    data-order-id={idParam}
     data-snap-token={snapToken}
-    data-redirect-url={redirectUrl}
+    data-payment-status={paymentStatus}
     data-whatsapp-cs={whatsappCs}
     data-deadline={String(deadlineTimestamp || '')}
     data-is-dev={String(isDev)}
@@ -61,16 +50,17 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
   />
 
   <main class="min-h-screen bg-[#FDF8F5] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-    <section class="mx-auto max-w-6xl">
+    <section class="mx-auto max-w-5xl">
       <header class="mb-6 rounded-[1.5rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p class="text-xs font-black uppercase tracking-[0.28em] text-[#e76f51]">Pembayaran</p>
             <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Selesaikan Pembayaran</h1>
             <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Selesaikan pembayaran pesanan Anda melalui Midtrans. Status akan diperbarui otomatis setelah pembayaran berhasil.
+              Silakan selesaikan pembayaran pesanan Anda. Timer dihitung otomatis, data menu diambil langsung dari Supabase, dan Snap Midtrans dibuka dari token yang tersimpan di database.
             </p>
           </div>
+
           <div class="flex flex-wrap items-center gap-3">
             <span class="rounded-full bg-[#FDF8F5] px-4 py-2 text-sm font-bold text-slate-700 ring-1 ring-slate-200">
               Order ID: <strong class="text-slate-900">{orderLabel}</strong>
@@ -83,18 +73,9 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
       </header>
 
       <div class="mb-6 flex items-start gap-3 rounded-2xl border-l-4 border-[#F59E0B] bg-[#FEF3C7] px-4 py-3 text-sm leading-6 text-[#7c5a12] shadow-sm">
-        <span>i</span>
-        <p class="m-0">Saat ini pembayaran hanya QRIS/Bank Transfer/Metode lain sesuai dukungan Midtrans pada akun Anda.</p>
+        <span class="mt-0.5">i</span>
+        <p class="m-0">Saat ini pembayaran aktif melalui metode Midtrans yang tersedia. Jika token belum ada, silakan coba lagi nanti.</p>
       </div>
-
-      {(isDev || testing) && (
-        <div class="mb-6 rounded-2xl border border-dashed border-[#2A9D8F]/30 bg-[#2A9D8F]/8 p-4 text-sm text-slate-700">
-          <strong class="block text-[#2A9D8F]">Debug Pembayaran</strong>
-          <p class="mt-1 mb-0">
-            snapToken: <code>{snapToken ? 'tersedia' : 'kosong'}</code> | redirectUrl: <code>{redirectUrl ? 'tersedia' : 'kosong'}</code> | created_at: <code>{createdAt || 'unknown'}</code>
-          </p>
-        </div>
-      )}
 
       <div class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <section class="grid gap-6">
@@ -114,7 +95,7 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
                   <div class="mt-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Sisa waktu</div>
                 </div>
               </div>
-              <p class="text-sm text-slate-600">Timer dihitung dari waktu pesanan dibuat dan akan berubah warna saat mendekati batas.</p>
+              <p class="text-sm text-slate-600">Timer berubah warna saat mendekati batas dan menampilkan tombol WhatsApp jika waktu habis.</p>
             </div>
           </article>
 
@@ -128,27 +109,27 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
             </div>
 
             <div class="overflow-hidden rounded-2xl border border-slate-200">
-              <div class="grid grid-cols-[72px_1fr_auto] gap-4 bg-[#fff7f2] px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-600">
-                <span>Foto</span>
+              <div class="grid grid-cols-[1fr_auto_auto] gap-3 bg-[#fff7f2] px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-600">
                 <span>Menu</span>
+                <span>Qty</span>
                 <span class="text-right">Harga</span>
               </div>
               <div class="divide-y divide-slate-200">
                 {menuItems.length ? menuItems.map((item) => (
-                  <div class="grid grid-cols-[72px_1fr_auto] items-center gap-4 px-4 py-4">
-                    <div class="overflow-hidden rounded-2xl bg-[#FDF8F5] ring-1 ring-slate-200">
-                      {item.menu?.gambar_url ? (
-                        <img src={item.menu.gambar_url} alt={item.menu?.nama || 'Menu'} class="h-[72px] w-[72px] object-cover" />
-                      ) : (
-                        <div class="flex h-[72px] w-[72px] items-center justify-center text-xs font-bold text-slate-500">Menu</div>
-                      )}
-                    </div>
+                  <div class="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-4">
                     <div>
                       <strong class="block text-sm font-black text-slate-900">{item.menu?.nama || `Menu #${item.id_menu}`}</strong>
-                      <span class="mt-1 inline-flex rounded-full bg-[#2A9D8F]/10 px-2 py-1 text-xs font-semibold text-[#2A9D8F]">Qty {item.jumlah}</span>
+                      <span class="mt-1 block text-xs text-slate-500">
+                        {item.menu?.gambar_url ? 'Ada foto menu' : 'Tanpa foto'}
+                      </span>
                     </div>
+                    <div class="text-sm font-bold text-slate-700">{item.jumlah}</div>
                     <div class="text-right text-sm font-black text-slate-900">
-                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(item.harga_saat_pesan || 0) * Number(item.jumlah || 0))}
+                      {new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR',
+                        maximumFractionDigits: 0,
+                      }).format(Number(item.harga_saat_pesan || 0) * Number(item.jumlah || 0))}
                     </div>
                   </div>
                 )) : (
@@ -169,25 +150,34 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
         <aside class="grid gap-6">
           <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
             <div class="mb-4">
-              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Metode Pembayaran</p>
-              <h2 class="mt-1 text-xl font-black text-slate-900">Instruksi Midtrans</h2>
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Informasi Pesanan</p>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Ringkasan</h2>
             </div>
 
-            <div class="rounded-2xl border border-[#e76f51]/15 bg-[#fff7f2] p-4">
-              <p class="m-0 text-sm leading-6 text-slate-700">
-                Klik tombol di bawah untuk membuka Snap Midtrans. Jika token kosong, halaman akan menampilkan pesan maintenance.
-              </p>
+            <div class="grid gap-3 text-sm text-slate-700">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-slate-500">Nama customer</span>
+                <strong class="text-slate-900">{pesanan?.customer_name || '-'}</strong>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-slate-500">Tipe pesanan</span>
+                <strong class="text-slate-900">{pesanan?.tipe_pesanan || '-'}</strong>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-slate-500">Waktu pesan</span>
+                <strong class="text-slate-900">{createdAt ? new Date(createdAt).toLocaleString('id-ID') : '-'}</strong>
+              </div>
             </div>
           </article>
 
           <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
             <div class="mb-4">
               <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Aksi</p>
-              <h2 class="mt-1 text-xl font-black text-slate-900">Buka Instruksi Pembayaran</h2>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Pembayaran</h2>
             </div>
 
             <div id="snapBox" class="rounded-2xl border-2 border-dashed border-[#e76f51] bg-[#FDF8F5] p-4 text-sm text-slate-600">
-              Klik tombol di bawah untuk membuka instruksi pembayaran.
+              Klik tombol di bawah untuk membuka instruksi pembayaran Midtrans.
             </div>
 
             <div class="mt-4 grid gap-3">
@@ -204,9 +194,9 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 
             {isDev && (
               <div class="mt-4 rounded-2xl border border-[#2A9D8F]/20 bg-[#2A9D8F]/10 p-4">
-                <p class="m-0 text-sm font-semibold text-slate-700">Mode development aktif. Simulasi pembayaran tersedia.</p>
+                <p class="m-0 text-sm font-semibold text-slate-700">Mode development aktif.</p>
                 <button id="simulateButton" type="button" class="mt-3 inline-flex w-full items-center justify-center rounded-2xl bg-[#2A9D8F] px-4 py-3 text-sm font-black text-white">
-                  Simulasi Bayar (Testing)
+                  Simulasi Bayar
                 </button>
               </div>
             )}
@@ -225,18 +215,13 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 
   <script type="module">
     const configEl = document.getElementById('payment-config')
-
     const ORDER_ID = String(configEl?.dataset.orderId || '')
     const SNAP_TOKEN = String(configEl?.dataset.snapToken || '')
-    const REDIRECT_URL = String(configEl?.dataset.redirectUrl || '')
-    const WHATSAPP_CS = String(configEl?.dataset.whatsappCs || '')
     const DEADLINE_TIMESTAMP = Number(configEl?.dataset.deadline || 0) || (Date.now() + 15 * 60 * 1000)
+    const WHATSAPP_CS = String(configEl?.dataset.whatsappCs || '')
     const IS_DEV = String(configEl?.dataset.isDev || 'false') === 'true'
     const MIDTRANS_CLIENT_KEY = String(configEl?.dataset.midtransClientKey || '')
     const MIDTRANS_IS_PRODUCTION = String(configEl?.dataset.midtransIsProduction || 'false') === 'true'
-
-    window.DEADLINE_TIMESTAMP = DEADLINE_TIMESTAMP
-    window.snapToken = SNAP_TOKEN
 
     const countdownEl = document.getElementById('countdownDisplay')
     const noteTextEl = document.getElementById('noteText')
@@ -248,6 +233,13 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
     const simulateButton = document.getElementById('simulateButton')
     const snapBox = document.getElementById('snapBox')
 
+    function formatCountdown(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000))
+      const minutes = String(Math.floor(total / 60)).padStart(2, '0')
+      const seconds = String(total % 60).padStart(2, '0')
+      return `${minutes}:${seconds}`
+    }
+
     function normalizePhone(value) {
       return String(value || '').replace(/[^\d]/g, '')
     }
@@ -258,15 +250,8 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
       return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
     }
 
-    if (WHATSAPP_CS && whatsappButton) {
+    if (whatsappButton && WHATSAPP_CS) {
       whatsappButton.href = waLink(`Halo Kasir, saya ingin konfirmasi pembayaran untuk pesanan #${ORDER_ID}.`)
-    }
-
-    function formatCountdown(ms) {
-      const total = Math.max(0, Math.floor(ms / 1000))
-      const minutes = String(Math.floor(total / 60)).padStart(2, '0')
-      const seconds = String(total % 60).padStart(2, '0')
-      return `${minutes}:${seconds}`
     }
 
     function tickCountdown() {
@@ -277,10 +262,10 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
       }
 
       if (remaining <= 0 && timeoutAreaEl) {
-        noteTextEl.textContent = 'Waktu habis, silakan hubungi kasir.'
+        if (noteTextEl) noteTextEl.textContent = 'Waktu habis, silakan hubungi kasir.'
         timeoutAreaEl.innerHTML = `
-          <a class="inline-flex items-center justify-center rounded-2xl bg-[#ef4444] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(239,68,68,0.18)]" href="${waLink(`Halo Kasir, waktu pembayaran pesanan #${ORDER_ID} sudah habis. Mohon bantu batalkan pesanan.`)}" target="_blank" rel="noreferrer">
-            Batalkan Pesanan
+          <a class="inline-flex items-center justify-center rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(37,211,102,0.22)]" href="${waLink(`Halo Kasir, waktu pembayaran pesanan #${ORDER_ID} sudah habis. Mohon bantu batalkan pesanan.`)}" target="_blank" rel="noreferrer">
+            Hubungi Kasir
           </a>
         `
       }
@@ -301,7 +286,7 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 
     function openPayment() {
       if (!SNAP_TOKEN) {
-        snapBox.textContent = 'Metode pembayaran sedang maintenance, silakan coba lagi nanti'
+        if (snapBox) snapBox.textContent = 'Metode pembayaran sedang maintenance, silakan coba lagi nanti.'
         return
       }
 
@@ -313,28 +298,19 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
               window.location.href = `/pembayaran/sukses/${ORDER_ID}`
             },
             onPending: () => {
-              noteTextEl.textContent = 'Menunggu konfirmasi pembayaran.'
+              if (noteTextEl) noteTextEl.textContent = 'Menunggu konfirmasi pembayaran.'
             },
             onError: () => {
-              noteTextEl.textContent = 'Gagal membuka instruksi pembayaran.'
+              if (noteTextEl) noteTextEl.textContent = 'Gagal membuka instruksi pembayaran.'
             },
             onClose: () => {
-              noteTextEl.textContent = 'Instruksi pembayaran ditutup.'
+              if (noteTextEl) noteTextEl.textContent = 'Instruksi pembayaran ditutup.'
             },
           })
         })
         .catch(() => {
-          if (REDIRECT_URL) {
-            window.open(REDIRECT_URL, '_blank', 'noopener,noreferrer')
-            return
-          }
-          snapBox.textContent = 'Metode pembayaran sedang maintenance, silakan coba lagi nanti'
+          if (snapBox) snapBox.textContent = 'Metode pembayaran sedang maintenance, silakan coba lagi nanti.'
         })
-    }
-
-    function simulatePay() {
-      if (!IS_DEV) return
-      window.location.href = `/pembayaran/sukses/${ORDER_ID}?testing=1`
     }
 
     async function refreshStatus() {
@@ -343,24 +319,29 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
         url.searchParams.set('id', ORDER_ID)
         const response = await fetch(url, { cache: 'no-store' })
         const data = await response.json()
+        const status = String(data?.pembayaran?.status || '').toLowerCase()
 
-        if (response.ok && data?.pembayaran?.status) {
-          const value = String(data.pembayaran.status).toLowerCase()
-          const label =
-            value === 'paid' || value === 'settlement' || value === 'capture'
-              ? 'Pembayaran diterima'
-              : value === 'failed'
-                ? 'Pembayaran gagal'
-                : 'Menunggu pembayaran'
-          if (statusBadgeEl) statusBadgeEl.textContent = label
+        if (statusBadgeEl) {
+          if (['paid', 'settlement', 'capture'].includes(status)) {
+            statusBadgeEl.textContent = 'Pembayaran diterima'
+          } else if (status === 'failed') {
+            statusBadgeEl.textContent = 'Pembayaran gagal'
+          } else {
+            statusBadgeEl.textContent = 'Menunggu pembayaran'
+          }
         }
 
-        if (data?.pembayaran?.status && ['paid', 'settlement', 'capture'].includes(String(data.pembayaran.status).toLowerCase())) {
+        if (['paid', 'settlement', 'capture'].includes(status)) {
           window.location.href = `/pembayaran/sukses/${ORDER_ID}`
         }
       } catch (error) {
         console.error(error)
       }
+    }
+
+    function simulatePay() {
+      if (!IS_DEV) return
+      window.location.href = `/pembayaran/sukses/${ORDER_ID}?testing=1`
     }
 
     openPaymentButton?.addEventListener('click', openPayment)
