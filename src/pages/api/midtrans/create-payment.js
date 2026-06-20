@@ -182,11 +182,13 @@ export async function POST({ request }) {
       console.error('whatsapp notification error', error)
     })
 
+    // Do not return snapToken or redirectUrl as URL parameters.
+    // snap token and redirect url are saved to the `pembayaran` table above.
+    // Redirect client only by order id; the pembayaran page will read snap_token from DB.
     return json({
       pesanan,
       midtrans: transaction,
-      snapToken: transaction.token || null,
-      redirectUrl: transaction.redirect_url || null,
+      redirectUrl: `/pembayaran/${pesanan.id}`,
     })
   } catch (error) {
     if (String(error?.message || '').includes('unauthorized transaction')) {

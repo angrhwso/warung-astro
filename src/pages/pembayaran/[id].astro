@@ -9,6 +9,11 @@ const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
 const testing = Astro.url.searchParams.get('testing') === '1'
 const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
 
+if (Astro.url.searchParams.has('snapToken') || Astro.url.searchParams.has('redirectUrl')) {
+  const canonicalPath = `/pembayaran/${id}${testing ? '?testing=1' : ''}`
+  return Astro.redirect(canonicalPath)
+}
+
 let pesanan = null
 let pembayaran = null
 
@@ -31,9 +36,10 @@ if (supabaseAdmin) {
 }
 
 const menuItems = pesanan?.detail_pesanan || []
-const createdAt = pesanan?.created_at || new Date().toISOString()
-const createdAtTimestamp = Number.isFinite(Date.parse(createdAt)) ? Date.parse(createdAt) : Date.now()
-const deadlineTimestamp = createdAtTimestamp + 15 * 60 * 1000
+// Prefer server-provided order timestamp; avoid calling Date.now() on the server
+const createdAt = pesanan?.created_at || null
+const createdAtTimestamp = createdAt ? Date.parse(createdAt) : null
+const deadlineTimestamp = createdAtTimestamp ? createdAtTimestamp + 15 * 60 * 1000 : null
 const totalRupiah = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR',
@@ -71,7 +77,7 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
         <div class="mb-6 rounded-2xl border border-dashed border-[#2A9D8F]/30 bg-[#2A9D8F]/8 p-4 text-sm text-slate-700">
           <strong class="block text-[#2A9D8F]">Debug Pembayaran</strong>
           <p class="mt-1 mb-0">
-            snapToken: <code>{snapToken ? 'tersedia' : 'kosong'}</code> | redirectUrl: <code>{redirectUrl ? 'tersedia' : 'kosong'}</code> | created_at: <code>{createdAt}</code>
+            snapToken: <code>{snapToken ? 'tersedia' : 'kosong'}</code> | redirectUrl: <code>{redirectUrl ? 'tersedia' : 'kosong'}</code> | created_at: <code>{createdAt || 'unknown'}</code>
           </p>
         </div>
       )}
@@ -89,7 +95,7 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
             <div class="mt-5 flex flex-col items-center gap-3">
               <div class="flex h-40 w-40 items-center justify-center rounded-full border-8 border-[#2A9D8F]/15 bg-[#FDF8F5] text-center">
                 <div>
-                  <div id="countdownDisplay" class="text-4xl font-black tracking-tight text-[#2A9D8F]">15:00</div>
+                  <div id="countdownDisplay" class="text-4xl font-black tracking-tight text-[#2A9D8F]">--:--</div>
                   <div class="mt-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Sisa waktu</div>
                 </div>
               </div>
@@ -205,23 +211,22 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
   </main>
 
   <script is:inline type="module">
-    const ORDER_ID = ${JSON.stringify(id)}
-    const SNAP_TOKEN = ${JSON.stringify(snapToken)}
-    const REDIRECT_URL = ${JSON.stringify(redirectUrl)}
-    const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
-    const DEADLINE = ${JSON.stringify(deadlineTimestamp)}
-    const DEADLINE_TIMESTAMP = DEADLINE
-    const IS_DEV = ${JSON.stringify(isDev)}
-    const MIDTRANS_CLIENT_KEY = ${JSON.stringify(import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '')}
-    const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true')}
+  const ORDER_ID = ${JSON.stringify(id)}
+  const SNAP_TOKEN = ${JSON.stringify(snapToken)}
+  const REDIRECT_URL = ${JSON.stringify(redirectUrl)}
+  const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
+  // deadlineTimestamp may be null when order timestamp is unavailable; compute on client if needed
+  const DEADLINE = ${JSON.stringify(deadlineTimestamp)}
+  // If server did not provide a deadline, compute a safe client-side default
+  const DEADLINE_TIMESTAMP = DEADLINE || (Date.now() + 15 * 60 * 1000)
+  const IS_DEV = ${JSON.stringify(isDev)}
+  const MIDTRANS_CLIENT_KEY = ${JSON.stringify(import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '')}
+  const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true')}
 
-    window.DEADLINE_TIMESTAMP = DEADLINE_TIMESTAMP
-
-    const currentUrl = new URL(window.location.href)
-    if (currentUrl.searchParams.has('snapToken') || currentUrl.searchParams.has('redirectUrl')) {
-      currentUrl.search = currentUrl.searchParams.get('testing') === '1' ? '?testing=1' : ''
-      window.location.replace(currentUrl.toString())
-    }
+  window.DEADLINE_TIMESTAMP = DEADLINE_TIMESTAMP
+  // expose snap token to window for debugging/compatibility but keep local const as source of truth
+  window.snapToken = SNAP_TOKEN
+  console.log('Token:', SNAP_TOKEN)
 
     const money = new Intl.NumberFormat('id-ID', {
       style: 'currency',
