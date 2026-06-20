@@ -47,18 +47,18 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 ---
 
 <Layout title={`Pembayaran ${orderLabel}`}>
-  <script type="application/json" id="payment-config">
-    {JSON.stringify({
-      orderId: id,
-      snapToken,
-      redirectUrl,
-      whatsappCs,
-      deadlineTimestamp,
-      isDev,
-      midtransClientKey: import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '',
-      midtransIsProduction: String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true',
-    })}
-  </script>
+  <div
+    id="payment-config"
+    hidden
+    data-order-id={id}
+    data-snap-token={snapToken}
+    data-redirect-url={redirectUrl}
+    data-whatsapp-cs={whatsappCs}
+    data-deadline={String(deadlineTimestamp || '')}
+    data-is-dev={String(isDev)}
+    data-midtrans-client-key={import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || ''}
+    data-midtrans-is-production={String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false')}
+  />
 
   <main class="min-h-screen bg-[#FDF8F5] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
     <section class="mx-auto max-w-6xl">
@@ -225,16 +225,15 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 
   <script type="module">
     const configEl = document.getElementById('payment-config')
-    const config = configEl ? JSON.parse(configEl.textContent || '{}') : {}
 
-    const ORDER_ID = String(config.orderId || '')
-    const SNAP_TOKEN = String(config.snapToken || '')
-    const REDIRECT_URL = String(config.redirectUrl || '')
-    const WHATSAPP_CS = String(config.whatsappCs || '')
-    const DEADLINE_TIMESTAMP = Number(config.deadlineTimestamp || 0) || (Date.now() + 15 * 60 * 1000)
-    const IS_DEV = Boolean(config.isDev)
-    const MIDTRANS_CLIENT_KEY = String(config.midtransClientKey || '')
-    const MIDTRANS_IS_PRODUCTION = Boolean(config.midtransIsProduction)
+    const ORDER_ID = String(configEl?.dataset.orderId || '')
+    const SNAP_TOKEN = String(configEl?.dataset.snapToken || '')
+    const REDIRECT_URL = String(configEl?.dataset.redirectUrl || '')
+    const WHATSAPP_CS = String(configEl?.dataset.whatsappCs || '')
+    const DEADLINE_TIMESTAMP = Number(configEl?.dataset.deadline || 0) || (Date.now() + 15 * 60 * 1000)
+    const IS_DEV = String(configEl?.dataset.isDev || 'false') === 'true'
+    const MIDTRANS_CLIENT_KEY = String(configEl?.dataset.midtransClientKey || '')
+    const MIDTRANS_IS_PRODUCTION = String(configEl?.dataset.midtransIsProduction || 'false') === 'true'
 
     window.DEADLINE_TIMESTAMP = DEADLINE_TIMESTAMP
     window.snapToken = SNAP_TOKEN
