@@ -4,6 +4,7 @@ import Toast from '../components/ui/Toast.jsx'
 
 const title = Astro.props.title || 'Warung Roso Nyoto'
 const description = Astro.props.description || 'Sajian hangat, pembayaran QRIS, dan dashboard warung modern.'
+const showToast = Astro.props.showToast !== false
 ---
 
 <!doctype html>
@@ -69,7 +70,7 @@ const description = Astro.props.description || 'Sajian hangat, pembayaran QRIS, 
       </div>
     </footer>
 
-    <Toast client:load />
+    {showToast && <Toast client:load />}
 
     <script>
       const root = document.documentElement
