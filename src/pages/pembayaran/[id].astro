@@ -1,17 +1,15 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import ConfettiEffect from '../../components/ConfettiEffect.jsx'
 import { supabaseAdmin } from '../../lib/supabase'
 
 const id = Astro.params.id
 const isDev = import.meta.env.DEV === true
-const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || ''
+const whatsappCs = import.meta.env.PUBLIC_WHATSAPP_CS || import.meta.env.ADMIN_WHATSAPP_NUMBER || ''
 const testing = Astro.url.searchParams.get('testing') === '1'
 const orderLabel = String(id).startsWith('ORD-') ? `#${id}` : `#ORD-${id}`
 
 if (Astro.url.searchParams.has('snapToken') || Astro.url.searchParams.has('redirectUrl')) {
-  const canonicalPath = `/pembayaran/${id}${testing ? '?testing=1' : ''}`
-  return Astro.redirect(canonicalPath)
+  return Astro.redirect(`/pembayaran/${id}${testing ? '?testing=1' : ''}`)
 }
 
 let pesanan = null
@@ -36,7 +34,6 @@ if (supabaseAdmin) {
 }
 
 const menuItems = pesanan?.detail_pesanan || []
-// Prefer server-provided order timestamp; avoid calling Date.now() on the server
 const createdAt = pesanan?.created_at || null
 const createdAtTimestamp = createdAt ? Date.parse(createdAt) : null
 const deadlineTimestamp = createdAtTimestamp ? createdAtTimestamp + 15 * 60 * 1000 : null
@@ -50,39 +47,44 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 ---
 
 <Layout title={`Pembayaran ${orderLabel}`}>
-  <script>
-    try {
-      const _u = new URL(window.location.href)
-      if (_u.searchParams.has('snapToken') || _u.searchParams.has('redirectUrl')) {
-        _u.search = _u.searchParams.get('testing') === '1' ? '?testing=1' : ''
-        // use replace to avoid creating a history entry
-        window.location.replace(_u.toString())
-      }
-    } catch (e) {
-      // ignore — best-effort only
-    }
+  <script type="application/json" id="payment-config">
+    {JSON.stringify({
+      orderId: id,
+      snapToken,
+      redirectUrl,
+      whatsappCs,
+      deadlineTimestamp,
+      isDev,
+      midtransClientKey: import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '',
+      midtransIsProduction: String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true',
+    })}
   </script>
+
   <main class="min-h-screen bg-[#FDF8F5] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
     <section class="mx-auto max-w-6xl">
       <header class="mb-6 rounded-[1.5rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p class="text-xs font-black uppercase tracking-[0.28em] text-[#e76f51]">Pembayaran</p>
-            <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">🍜 Selesaikan Pembayaran</h1>
+            <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Selesaikan Pembayaran</h1>
             <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Lanjutkan pembayaran melalui transfer bank sementara, lalu status akan diperbarui otomatis.
+              Selesaikan pembayaran pesanan Anda melalui Midtrans. Status akan diperbarui otomatis setelah pembayaran berhasil.
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <span class="rounded-full bg-[#FDF8F5] px-4 py-2 text-sm font-bold text-slate-700 ring-1 ring-slate-200">Order ID: <strong class="text-slate-900">{orderLabel}</strong></span>
-            <span id="statusBadge" class="animate-pulse rounded-full bg-[#FEF3C7] px-4 py-2 text-sm font-bold text-[#92400e] ring-1 ring-[#f59e0b]/20">Menunggu Pembayaran</span>
+            <span class="rounded-full bg-[#FDF8F5] px-4 py-2 text-sm font-bold text-slate-700 ring-1 ring-slate-200">
+              Order ID: <strong class="text-slate-900">{orderLabel}</strong>
+            </span>
+            <span id="statusBadge" class="animate-pulse rounded-full bg-[#FEF3C7] px-4 py-2 text-sm font-bold text-[#92400e] ring-1 ring-[#f59e0b]/20">
+              Menunggu pembayaran
+            </span>
           </div>
         </div>
       </header>
 
       <div class="mb-6 flex items-start gap-3 rounded-2xl border-l-4 border-[#F59E0B] bg-[#FEF3C7] px-4 py-3 text-sm leading-6 text-[#7c5a12] shadow-sm">
-        <span>ℹ️</span>
-        <p class="m-0">Saat ini pembayaran hanya transfer bank. QRIS/GoPay sedang maintenance.</p>
+        <span>i</span>
+        <p class="m-0">Saat ini pembayaran hanya QRIS/Bank Transfer/Metode lain sesuai dukungan Midtrans pada akun Anda.</p>
       </div>
 
       {(isDev || testing) && (
@@ -104,6 +106,7 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
               </div>
               <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">15 menit</span>
             </div>
+
             <div class="mt-5 flex flex-col items-center gap-3">
               <div class="flex h-40 w-40 items-center justify-center rounded-full border-8 border-[#2A9D8F]/15 bg-[#FDF8F5] text-center">
                 <div>
@@ -167,35 +170,35 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
           <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
             <div class="mb-4">
               <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Metode Pembayaran</p>
-              <h2 class="mt-1 text-xl font-black text-slate-900">Transfer Bank</h2>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Instruksi Midtrans</h2>
             </div>
 
             <div class="rounded-2xl border border-[#e76f51]/15 bg-[#fff7f2] p-4">
               <p class="m-0 text-sm leading-6 text-slate-700">
-                BCA, BNI, BRI, dan Mandiri tersedia melalui Midtrans.
+                Klik tombol di bawah untuk membuka Snap Midtrans. Jika token kosong, halaman akan menampilkan pesan maintenance.
               </p>
             </div>
           </article>
 
           <article class="rounded-[1.5rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
             <div class="mb-4">
-              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Instruksi</p>
-              <h2 class="mt-1 text-xl font-black text-slate-900">Buka Instruksi Transfer Bank</h2>
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Aksi</p>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Buka Instruksi Pembayaran</h2>
             </div>
 
             <div id="snapBox" class="rounded-2xl border-2 border-dashed border-[#e76f51] bg-[#FDF8F5] p-4 text-sm text-slate-600">
-              Klik tombol di bawah untuk menampilkan instruksi transfer bank.
+              Klik tombol di bawah untuk membuka instruksi pembayaran.
             </div>
 
             <div class="mt-4 grid gap-3">
               <button id="openPaymentButton" type="button" class="inline-flex items-center justify-center rounded-2xl bg-[#e76f51] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(231,111,81,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50">
-                💳 Buka Instruksi Transfer Bank
+                Buka Instruksi Pembayaran
               </button>
               <button id="refreshButton" type="button" class="inline-flex items-center justify-center rounded-2xl border border-[#e76f51] px-4 py-3 text-sm font-black text-[#e76f51] transition hover:bg-[#e76f51] hover:text-white">
-                🔄 Cek Status Pembayaran
+                Cek Status Pembayaran
               </button>
               <a id="whatsappButton" href="#" target="_blank" rel="noreferrer" class="inline-flex items-center justify-center rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(37,211,102,0.22)] transition hover:-translate-y-0.5">
-                💬 Hubungi Kasir
+                Hubungi Kasir
               </a>
             </div>
 
@@ -218,33 +221,23 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
         <div id="timeoutArea" class="mt-4"></div>
       </div>
     </section>
-
-    <ConfettiEffect client:load />
   </main>
 
-  <script is:inline type="module">
-  const ORDER_ID = ${JSON.stringify(id)}
-  const SNAP_TOKEN = ${JSON.stringify(snapToken)}
-  const REDIRECT_URL = ${JSON.stringify(redirectUrl)}
-  const WHATSAPP_CS = ${JSON.stringify(whatsappCs)}
-  // deadlineTimestamp may be null when order timestamp is unavailable; compute on client if needed
-  const DEADLINE = ${JSON.stringify(deadlineTimestamp)}
-  // If server did not provide a deadline, compute a safe client-side default
-  const DEADLINE_TIMESTAMP = DEADLINE || (Date.now() + 15 * 60 * 1000)
-  const IS_DEV = ${JSON.stringify(isDev)}
-  const MIDTRANS_CLIENT_KEY = ${JSON.stringify(import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '')}
-  const MIDTRANS_IS_PRODUCTION = ${JSON.stringify(String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false') === 'true')}
+  <script type="module">
+    const configEl = document.getElementById('payment-config')
+    const config = configEl ? JSON.parse(configEl.textContent || '{}') : {}
 
-  window.DEADLINE_TIMESTAMP = DEADLINE_TIMESTAMP
-  // expose snap token to window for debugging/compatibility but keep local const as source of truth
-  window.snapToken = SNAP_TOKEN
-  console.log('Token:', SNAP_TOKEN)
+    const ORDER_ID = String(config.orderId || '')
+    const SNAP_TOKEN = String(config.snapToken || '')
+    const REDIRECT_URL = String(config.redirectUrl || '')
+    const WHATSAPP_CS = String(config.whatsappCs || '')
+    const DEADLINE_TIMESTAMP = Number(config.deadlineTimestamp || 0) || (Date.now() + 15 * 60 * 1000)
+    const IS_DEV = Boolean(config.isDev)
+    const MIDTRANS_CLIENT_KEY = String(config.midtransClientKey || '')
+    const MIDTRANS_IS_PRODUCTION = Boolean(config.midtransIsProduction)
 
-    const money = new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0,
-    })
+    window.DEADLINE_TIMESTAMP = DEADLINE_TIMESTAMP
+    window.snapToken = SNAP_TOKEN
 
     const countdownEl = document.getElementById('countdownDisplay')
     const noteTextEl = document.getElementById('noteText')
@@ -278,13 +271,13 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
     }
 
     function tickCountdown() {
-      const remaining = DEADLINE - Date.now()
+      const remaining = DEADLINE_TIMESTAMP - Date.now()
       if (countdownEl) {
         countdownEl.textContent = formatCountdown(remaining)
         countdownEl.style.color = remaining < 2 * 60 * 1000 ? '#ef4444' : remaining < 5 * 60 * 1000 ? '#f59e0b' : '#2A9D8F'
       }
 
-      if (remaining <= 0) {
+      if (remaining <= 0 && timeoutAreaEl) {
         noteTextEl.textContent = 'Waktu habis, silakan hubungi kasir.'
         timeoutAreaEl.innerHTML = `
           <a class="inline-flex items-center justify-center rounded-2xl bg-[#ef4444] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(239,68,68,0.18)]" href="${waLink(`Halo Kasir, waktu pembayaran pesanan #${ORDER_ID} sudah habis. Mohon bantu batalkan pesanan.`)}" target="_blank" rel="noreferrer">
@@ -321,10 +314,10 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
               window.location.href = `/pembayaran/sukses/${ORDER_ID}`
             },
             onPending: () => {
-              noteTextEl.textContent = 'Menunggu konfirmasi transfer bank.'
+              noteTextEl.textContent = 'Menunggu konfirmasi pembayaran.'
             },
             onError: () => {
-              noteTextEl.textContent = 'Gagal membuka instruksi transfer bank.'
+              noteTextEl.textContent = 'Gagal membuka instruksi pembayaran.'
             },
             onClose: () => {
               noteTextEl.textContent = 'Instruksi pembayaran ditutup.'
@@ -354,12 +347,13 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 
         if (response.ok && data?.pembayaran?.status) {
           const value = String(data.pembayaran.status).toLowerCase()
-          const label = value === 'paid' || value === 'settlement' || value === 'capture'
-            ? 'Pembayaran Diterima'
-            : value === 'failed'
-              ? 'Pembayaran Gagal'
-              : 'Menunggu Pembayaran'
-          statusBadgeEl.textContent = label
+          const label =
+            value === 'paid' || value === 'settlement' || value === 'capture'
+              ? 'Pembayaran diterima'
+              : value === 'failed'
+                ? 'Pembayaran gagal'
+                : 'Menunggu pembayaran'
+          if (statusBadgeEl) statusBadgeEl.textContent = label
         }
 
         if (data?.pembayaran?.status && ['paid', 'settlement', 'capture'].includes(String(data.pembayaran.status).toLowerCase())) {
