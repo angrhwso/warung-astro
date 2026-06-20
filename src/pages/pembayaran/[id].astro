@@ -50,6 +50,18 @@ const redirectUrl = pembayaran?.redirect_url || pembayaran?.payment_link || ''
 ---
 
 <Layout title={`Pembayaran ${orderLabel}`}>
+  <script>
+    try {
+      const _u = new URL(window.location.href)
+      if (_u.searchParams.has('snapToken') || _u.searchParams.has('redirectUrl')) {
+        _u.search = _u.searchParams.get('testing') === '1' ? '?testing=1' : ''
+        // use replace to avoid creating a history entry
+        window.location.replace(_u.toString())
+      }
+    } catch (e) {
+      // ignore — best-effort only
+    }
+  </script>
   <main class="min-h-screen bg-[#FDF8F5] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
     <section class="mx-auto max-w-6xl">
       <header class="mb-6 rounded-[1.5rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
