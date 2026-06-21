@@ -8,7 +8,7 @@ const id = Number(idParam)
 const { data: pesanan } = supabaseAdmin
   ? await supabaseAdmin
       .from('pesanan')
-      .select('id, pembayaran(snap_token)')
+      .select('id, created_at, total, tipe_pesanan, customer_name, pembayaran(snap_token, status), detail_pesanan(*, menu(*))')
       .eq('id', id)
       .maybeSingle()
   : { data: null }
@@ -16,17 +16,179 @@ const { data: pesanan } = supabaseAdmin
 const paymentRaw = pesanan?.pembayaran
 const pembayaran = Array.isArray(paymentRaw) ? paymentRaw[0] : paymentRaw
 const snapToken = pembayaran?.snap_token || ''
+const paymentStatus = pembayaran?.status || 'pending'
+const menuItems = pesanan?.detail_pesanan || []
+const createdAt = pesanan?.created_at || null
+const deadlineTimestamp = createdAt ? Date.parse(createdAt) + 15 * 60 * 1000 : null
+const totalRupiah = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0,
+}).format(Number(pesanan?.total || 0))
+const orderLabel = String(idParam).startsWith('ORD-') ? `#${idParam}` : `#ORD-${idParam}`
 ---
 
-<Layout title={`Pembayaran #${idParam}`} showToast={false}>
-  <main class="min-h-screen bg-[#FDF8F5] px-4 py-8 text-slate-900">
-    <section class="mx-auto flex min-h-[60vh] max-w-xl items-center">
-      <div class="w-full rounded-[1.5rem] bg-white p-6 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200">
-        <p class="text-xs font-black uppercase tracking-[0.28em] text-[#e76f51]">Pembayaran</p>
-        <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-900">Midtrans Snap</h1>
-        <p id="payment-status" class="mt-3 text-sm leading-6 text-slate-600">
-          {snapToken ? 'Snap token ditemukan. Midtrans akan dibuka.' : 'Snap token belum tersedia.'}
-        </p>
+<Layout title={`Pembayaran ${orderLabel}`} showToast={false}>
+  <main class="min-h-screen bg-[radial-gradient(circle_at_top,_#fff4ee_0%,_#fdf8f5_45%,_#f8fafc_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+    <section class="mx-auto max-w-7xl">
+      <header class="mb-6 rounded-[1.75rem] border border-white/60 bg-white/80 p-5 shadow-[0_20px_60px_rgba(43,31,26,0.08)] backdrop-blur sm:p-6">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p class="text-xs font-black uppercase tracking-[0.3em] text-[#e76f51]">Checkout Dashboard</p>
+            <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Selesaikan Pembayaran</h1>
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+              Halaman ini mengambil snap_token dari Supabase, lalu membuka Midtrans hanya saat tombol diklik.
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="rounded-full bg-[#FDF8F5] px-4 py-2 text-sm font-bold text-slate-700 ring-1 ring-slate-200">
+              Order ID: <strong class="text-slate-900">{orderLabel}</strong>
+            </span>
+            <span id="payment-status-badge" class="rounded-full bg-[#FEF3C7] px-4 py-2 text-sm font-bold text-[#92400e] ring-1 ring-[#f59e0b]/20">
+              Menunggu pembayaran
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <section class="grid gap-6">
+          <article class="rounded-[1.75rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Timer</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Countdown Pembayaran</h2>
+              </div>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">15 menit</span>
+            </div>
+
+            <div class="mt-5 flex items-center gap-4 rounded-3xl bg-[#fdf8f5] p-4 ring-1 ring-slate-200">
+              <div class="flex h-20 w-20 items-center justify-center rounded-2xl bg-white text-center shadow-sm ring-1 ring-slate-200">
+                <div id="countdownDisplay" class="text-2xl font-black tracking-tight text-[#2A9D8F]">--:--</div>
+              </div>
+              <div>
+                <p class="text-sm font-bold text-slate-900">Sisa waktu pembayaran</p>
+                <p class="mt-1 text-sm text-slate-600">Timer dihitung dari waktu pesanan dibuat.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="rounded-[1.75rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Detail Pesanan</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Menu yang Dipesan</h2>
+              </div>
+              <span class="rounded-full bg-[#2A9D8F]/10 px-3 py-1 text-xs font-bold text-[#2A9D8F]">Dari Supabase</span>
+            </div>
+
+            <div class="overflow-hidden rounded-2xl border border-slate-200">
+              <div class="grid grid-cols-[1fr_auto_auto] gap-3 bg-[#fff7f2] px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-600">
+                <span>Menu</span>
+                <span>Qty</span>
+                <span class="text-right">Harga</span>
+              </div>
+              <div class="divide-y divide-slate-200">
+                {menuItems.length ? menuItems.map((item) => (
+                  <div class="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-4">
+                    <div>
+                      <strong class="block text-sm font-black text-slate-900">{item.menu?.nama || `Menu #${item.id_menu}`}</strong>
+                      <span class="mt-1 block text-xs text-slate-500">{item.menu?.gambar_url ? 'Ada foto menu' : 'Tanpa foto'}</span>
+                    </div>
+                    <div class="text-sm font-bold text-slate-700">{item.jumlah}</div>
+                    <div class="text-right text-sm font-black text-slate-900">
+                      {new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR',
+                        maximumFractionDigits: 0,
+                      }).format(Number(item.harga_saat_pesan || 0) * Number(item.jumlah || 0))}
+                    </div>
+                  </div>
+                )) : (
+                  <div class="px-4 py-6 text-center text-sm text-slate-500">Detail pesanan belum tersedia.</div>
+                )}
+              </div>
+            </div>
+          </article>
+
+          <article class="rounded-[1.75rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Total Pembayaran</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Ringkasan Biaya</h2>
+              </div>
+            </div>
+            <div class="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-[#fff7f2] p-4 ring-1 ring-[#e76f51]/10">
+              <span class="text-sm font-bold text-slate-600">Total</span>
+              <strong class="text-2xl font-black tracking-tight text-slate-900">{totalRupiah}</strong>
+            </div>
+          </article>
+        </section>
+
+        <aside class="grid gap-6">
+          <article class="rounded-[1.75rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
+            <div class="mb-4">
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Metode Pembayaran</p>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Midtrans Snap</h2>
+            </div>
+
+            <div class="grid gap-3 text-sm text-slate-700">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-slate-500">Pelanggan</span>
+                <strong class="text-slate-900">{pesanan?.customer_name || '-'}</strong>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-slate-500">Tipe pesanan</span>
+                <strong class="text-slate-900">{pesanan?.tipe_pesanan || '-'}</strong>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-slate-500">Waktu pesan</span>
+                <strong class="text-slate-900">{createdAt ? new Date(createdAt).toLocaleString('id-ID') : '-'}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="rounded-[1.75rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
+            <div class="mb-4">
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Status Pembayaran</p>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Status Terkini</h2>
+            </div>
+
+            <div class="rounded-2xl bg-[#fdf8f5] p-4 ring-1 ring-slate-200">
+              <p id="statusText" class="text-sm font-bold text-slate-900">
+                {paymentStatus === 'paid' ? 'Pembayaran diterima' : 'Menunggu pembayaran'}
+              </p>
+              <p class="mt-1 text-sm text-slate-600">
+                Status diambil dari data pembayaran yang tersimpan di Supabase.
+              </p>
+            </div>
+          </article>
+
+          <article class="rounded-[1.75rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
+            <div class="mb-4">
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Instruksi Pembayaran</p>
+              <h2 class="mt-1 text-xl font-black text-slate-900">Langkah Lanjut</h2>
+            </div>
+
+            <div id="snapBox" class="rounded-2xl border-2 border-dashed border-[#e76f51] bg-[#FDF8F5] p-4 text-sm leading-6 text-slate-600">
+              Klik tombol di bawah untuk membuka Snap Midtrans. Token akan diambil dari database.
+            </div>
+
+            <button
+              id="openPaymentButton"
+              type="button"
+              class="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-[#e76f51] px-4 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(231,111,81,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!snapToken}
+            >
+              Buka Instruksi Pembayaran
+            </button>
+
+            <p class="mt-3 text-xs leading-5 text-slate-500">
+              Setelah tombol ditekan, Midtrans Snap akan dibuka menggunakan snap_token yang sudah tersimpan di Supabase.
+            </p>
+          </article>
+        </aside>
       </div>
     </section>
   </main>
@@ -35,6 +197,7 @@ const snapToken = pembayaran?.snap_token || ''
     id="payment-config"
     hidden
     data-snap-token={snapToken}
+    data-deadline={String(deadlineTimestamp || '')}
     data-midtrans-client-key={import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || ''}
     data-midtrans-is-production={String(import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION || 'false')}
   />
