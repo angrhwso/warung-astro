@@ -1,5 +1,4 @@
 import { supabaseAdmin } from '../../../lib/supabase'
-import { sendAdminWhatsappNotification } from '../../../lib/whatsapp'
 import MidtransClient from 'midtrans-client'
 
 function json(data, status = 200) {
@@ -115,18 +114,7 @@ export async function POST({ request }) {
         status: 'pending',
       })
 
-      sendAdminWhatsappNotification({
-        orderId: pesanan.id,
-        total,
-        items: details.map((item) => ({
-          nama: menuMap.get(item.id_menu)?.nama || `Menu #${item.id_menu}`,
-          jumlah: item.jumlah,
-        })),
-      }).catch((error) => {
-        console.error('whatsapp notification error', error)
-      })
-
-      return json({ pesanan, pembayaran: { metode: 'tunai', status: 'pending' } })
+      return json({ pesanan: { id: pesanan.id } })
     }
 
     const orderId = `pesanan-${pesanan.id}`
@@ -175,30 +163,10 @@ export async function POST({ request }) {
       id_pesanan: pesanan.id,
       metode: 'midtrans',
       snap_token: transaction.token || null,
-      redirect_url: transaction.redirect_url || null,
-      payment_link: transaction.redirect_url || null,
       status: 'pending',
     })
 
-    sendAdminWhatsappNotification({
-      orderId: pesanan.id,
-      total,
-      items: details.map((item) => ({
-        nama: menuMap.get(item.id_menu)?.nama || `Menu #${item.id_menu}`,
-        jumlah: item.jumlah,
-      })),
-    }).catch((error) => {
-      console.error('whatsapp notification error', error)
-    })
-
-    // Do not return snapToken or redirectUrl as URL parameters.
-    // snap token and redirect url are saved to the `pembayaran` table above.
-    // Redirect client only by order id; the pembayaran page will read snap_token from DB.
-    return json({
-      pesanan,
-      midtrans: transaction,
-      redirectUrl: `/pembayaran/${pesanan.id}`,
-    })
+    return json({ pesanan: { id: pesanan.id } })
   } catch (error) {
     if (String(error?.message || '').includes('unauthorized transaction')) {
       return json({

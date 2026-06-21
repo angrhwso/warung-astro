@@ -4,15 +4,6 @@ import { useState } from 'react'
 export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, metodePembayaran = 'midtrans', disabled = false }) {
   const [loading, setLoading] = useState(false)
 
-  const getTestingMode = () => {
-    if (typeof window === 'undefined') return false
-    try {
-      return localStorage.getItem('warung-midtrans-testing') === '1'
-    } catch {
-      return false
-    }
-  }
-
   const handleCheckout = async () => {
     if (disabled || loading) return
     setLoading(true)
@@ -37,16 +28,10 @@ export default function CheckoutButton({ cart, mejaId, tipePesanan, alamat, meto
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Checkout gagal')
 
-      console.log('[checkout] create-payment response', {
-        orderId: data.pesanan?.id || data.midtrans?.order_id,
-        hasSnapToken: Boolean(data.snapToken),
-        hasRedirectUrl: Boolean(data.redirectUrl),
-      })
+      const pesananId = data.pesanan?.id
+      if (!pesananId) throw new Error('ID pesanan tidak ditemukan')
 
-      // redirect to payment page using only the order id
-      const pesananId = data.pesanan?.id || (data.midtrans && data.midtrans.order_id?.split('-')[1])
-      const testing = getTestingMode() ? '?testing=1' : ''
-      window.location.href = `/pembayaran/${pesananId}${testing}`
+      window.location.href = `/pembayaran/${pesananId}`
     } catch (err) {
       console.error(err)
       alert('Gagal melakukan checkout: ' + (err.message || err))
