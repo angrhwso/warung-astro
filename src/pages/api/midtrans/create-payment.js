@@ -21,10 +21,11 @@ function getMidtransConfig() {
     process.env.PUBLIC_MIDTRANS_IS_PRODUCTION ||
     process.env.MIDTRANS_IS_PRODUCTION
   const isProduction =
-    rawMode !== undefined
-      ? String(rawMode) === 'true'
-      : !String(serverKey || clientKey || '').startsWith('SB-')
-
+  String(
+    import.meta.env.PUBLIC_MIDTRANS_IS_PRODUCTION ??
+    process.env.PUBLIC_MIDTRANS_IS_PRODUCTION ??
+    'false'
+  ) === 'true'
   return { serverKey, clientKey, isProduction }
 }
 
