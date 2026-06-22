@@ -12,6 +12,8 @@ export default function AdminDashboard() {
   const [lowStock, setLowStock] = useState([])
   const [newOrders, setNewOrders] = useState(0)
   const [testingMode, setTestingMode] = useState(false)
+  const [simulationBusy, setSimulationBusy] = useState(false)
+  const simulationEnabled = String(import.meta.env.PUBLIC_ENABLE_SIMULATION || 'false') === 'true'
 
   const today = useMemo(() => {
     const date = new Date()
@@ -83,6 +85,32 @@ export default function AdminDashboard() {
     } catch {}
   }
 
+  const simulatePayment = async () => {
+    setSimulationBusy(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+      const latestOrder = orders[0]
+      if (!latestOrder?.id) throw new Error('Tidak ada pesanan untuk disimulasikan')
+
+      const response = await fetch('/api/admin/simulate-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ id: latestOrder.id }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Simulasi pembayaran gagal')
+      fetchPesanan()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setSimulationBusy(false)
+    }
+  }
+
   return (
     <div className="admin-grid">
       <section className="stat-grid">
@@ -124,6 +152,11 @@ export default function AdminDashboard() {
         <p className={`status-badge ${testingMode ? 'status-selesai' : 'status-pending'} mt-3`}>
           {testingMode ? 'Testing aktif' : 'Testing nonaktif'}
         </p>
+        {simulationEnabled && (
+          <button className="secondary-button mt-3" type="button" onClick={simulatePayment} disabled={simulationBusy}>
+            {simulationBusy ? 'Memproses...' : 'Simulasi Pembayaran'}
+          </button>
+        )}
       </section>
 
       <section className="admin-card">
