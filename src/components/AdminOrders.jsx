@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const statuses = [
-  { value: 'menunggu_pembayaran', label: '🟡 Menunggu' },
-  { value: 'diproses', label: '🔵 Diproses' },
-  { value: 'siap', label: '🟣 Siap' },
-  { value: 'selesai', label: '🟢 Selesai' },
-  { value: 'dibatalkan', label: '🔴 Dibatalkan' },
+  { value: 'menunggu_pembayaran', label: 'Menunggu' },
+  { value: 'diproses', label: 'Diproses' },
+  { value: 'siap_diambil', label: 'Siap Diambil' },
+  { value: 'selesai', label: 'Selesai' },
+  { value: 'dibatalkan', label: 'Dibatalkan' },
 ]
 const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
 
@@ -57,12 +57,23 @@ export default function AdminOrders() {
 
   const updateStatus = async (id, status) => {
     setError('')
-    const { error: updateError } = await supabase.from('pesanan').update({ status }).eq('id', id)
-    if (updateError) {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+      const response = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ id, status }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Gagal update status')
+      load()
+    } catch (updateError) {
       setError(updateError.message || 'Gagal update status')
-      return
     }
-    load()
   }
 
   const visibleOrders = filter === 'all' ? orders : orders.filter((order) => order.status === filter)

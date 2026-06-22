@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { supabaseAdmin } from '../../../lib/supabase'
+import { sendCustomerWhatsappNotification } from '../../../lib/whatsapp'
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -38,6 +39,12 @@ export async function POST({ request }) {
     const failed = ['deny', 'cancel', 'expire', 'failure'].includes(transaction_status)
     const paymentStatus = paid ? 'paid' : failed ? 'failed' : 'pending'
 
+    const { data: pesanan } = await supabaseAdmin
+      .from('pesanan')
+      .select('id, customer_phone')
+      .eq('id', id_pesanan)
+      .maybeSingle()
+
     const { error: paymentError } = await supabaseAdmin.from('pembayaran').upsert(
       {
         id_pesanan,
@@ -52,6 +59,16 @@ export async function POST({ request }) {
     if (paid) {
       const { error } = await supabaseAdmin.from('pesanan').update({ status: 'diproses' }).eq('id', id_pesanan)
       if (error) throw error
+
+      const trackingUrl = new URL(`/tracking/${id_pesanan}`, request.url).toString()
+      sendCustomerWhatsappNotification({
+        customerPhone: pesanan?.customer_phone,
+        id: id_pesanan,
+        status: 'diproses',
+        trackingUrl,
+      }).catch((whatsappError) => {
+        console.error('customer whatsapp error', whatsappError)
+      })
     } else if (failed) {
       const { error } = await supabaseAdmin.from('pesanan').update({ status: 'dibatalkan' }).eq('id', id_pesanan)
       if (error) throw error
