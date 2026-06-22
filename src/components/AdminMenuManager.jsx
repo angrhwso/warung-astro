@@ -59,6 +59,14 @@ export default function AdminMenuManager() {
   const uploadImage = async () => {
     if (!image) return form.gambar_url || null
 
+    if (!String(image.type || '').startsWith('image/')) {
+      throw new Error('Hanya file gambar (image/*) yang diperbolehkan')
+    }
+
+    if (image.size > 5 * 1024 * 1024) {
+      throw new Error('Ukuran gambar maksimal 5MB')
+    }
+
     const base64 = await new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(String(reader.result).split(',')[1])
@@ -189,7 +197,27 @@ export default function AdminMenuManager() {
           </label>
           <label>
             Gambar
-            <input type="file" accept="image/*" onChange={(event) => setImage(event.target.files?.[0] || null)} />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0] || null
+                if (file && !String(file.type || '').startsWith('image/')) {
+                  setError('Hanya file gambar (image/*) yang diperbolehkan')
+                  event.target.value = ''
+                  setImage(null)
+                  return
+                }
+                if (file && file.size > 5 * 1024 * 1024) {
+                  setError('Ukuran gambar maksimal 5MB')
+                  event.target.value = ''
+                  setImage(null)
+                  return
+                }
+                setError('')
+                setImage(file)
+              }}
+            />
           </label>
           <label>
             Tersedia
