@@ -2,6 +2,7 @@
   const configEl = document.getElementById('payment-config')
   if (!configEl) return
 
+  const orderId = String(configEl.dataset.orderId || '')
   const snapToken = String(configEl.dataset.snapToken || '')
   const deadlineTimestamp = Number(configEl.dataset.deadline || 0)
   const clientKey = String(configEl.dataset.midtransClientKey || '')
@@ -60,7 +61,11 @@
         throw new Error('Snap Midtrans belum siap')
       }
 
-      window.snap.pay(snapToken)
+      window.snap.pay(snapToken, {
+        onSuccess: () => {
+          window.location.href = `/pembayaran/sukses/${orderId}`
+        },
+      })
     } catch (error) {
       console.error(error)
       if (snapBox) snapBox.textContent = 'Gagal membuka Snap Midtrans.'
