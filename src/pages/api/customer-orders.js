@@ -18,24 +18,9 @@ export async function GET({ url }) {
     }
 
     const phone = normalizePhone(url.searchParams.get('phone'))
-    const token = String(url.searchParams.get('token') || '')
 
-    if (!phone || !token) {
-      return json({ error: 'Session tidak lengkap' }, 400)
-    }
-
-    const { data: session, error: sessionError } = await supabaseAdmin
-      .from('customer_sessions')
-      .select('*')
-      .eq('phone', phone)
-      .eq('session_token', token)
-      .eq('is_verified', true)
-      .maybeSingle()
-
-    if (sessionError) throw sessionError
-    if (!session) return json({ error: 'Session tidak valid' }, 401)
-    if (session.session_expires_at && new Date(session.session_expires_at).getTime() < Date.now()) {
-      return json({ error: 'Session kedaluwarsa' }, 401)
+    if (!phone) {
+      return json({ error: 'Nomor WhatsApp wajib diisi' }, 400)
     }
 
     const { data: orders, error: ordersError } = await supabaseAdmin

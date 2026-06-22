@@ -9,7 +9,7 @@ import LoginOTP from '../components/LoginOTP.jsx'
       <div>
         <p class="eyebrow">Riwayat Customer</p>
         <h1>Pesanan Anda</h1>
-        <p>Masuk dengan OTP WhatsApp untuk melihat daftar pesanan, detail menu, dan pesan lagi dengan satu klik.</p>
+        <p>Masukkan nomor WhatsApp untuk melihat daftar pesanan yang tersimpan di tabel pesanan.</p>
       </div>
       <a class="history-home-link" href="/">Kembali ke Menu</a>
     </section>
@@ -23,10 +23,10 @@ import LoginOTP from '../components/LoginOTP.jsx'
             <p class="eyebrow">Daftar Pesanan</p>
             <h2>Riwayat Pembelian</h2>
           </div>
-          <span class="history-badge" id="historyState">Menunggu login</span>
+          <span class="history-badge" id="historyState">Menunggu nomor WhatsApp</span>
         </div>
         <div id="historyList" class="history-list">
-          <p class="history-empty">Silakan login dulu untuk melihat riwayat pesanan.</p>
+          <p class="history-empty">Silakan masukkan nomor WhatsApp untuk melihat riwayat pesanan.</p>
         </div>
       </section>
 
@@ -45,8 +45,7 @@ import LoginOTP from '../components/LoginOTP.jsx'
     </div>
   </main>
 
-  <script is:inline type="module">
-    const SESSION_KEY = 'warung-customer-session'
+    <script is:inline type="module">
     const historyStateEl = document.getElementById('historyState')
     const historyListEl = document.getElementById('historyList')
     const historyDetailEl = document.getElementById('historyDetail')
@@ -60,7 +59,7 @@ import LoginOTP from '../components/LoginOTP.jsx'
     const statusMap = {
       menunggu_pembayaran: 'Menunggu pembayaran',
       diproses: 'Diproses',
-      siap: 'Siap',
+      siap_diambil: 'Siap diambil',
       selesai: 'Selesai',
       dibatalkan: 'Dibatalkan',
     }
@@ -85,21 +84,6 @@ import LoginOTP from '../components/LoginOTP.jsx'
 
     function normalizePhone(value) {
       return String(value || '').replace(/[^\d]/g, '')
-    }
-
-    function loadSession() {
-      try {
-        const raw = localStorage.getItem(SESSION_KEY)
-        if (!raw) return null
-        const session = JSON.parse(raw)
-        if (!session?.expires_at || new Date(session.expires_at).getTime() < Date.now()) {
-          localStorage.removeItem(SESSION_KEY)
-          return null
-        }
-        return session
-      } catch {
-        return null
-      }
     }
 
     function setEmptyState(message) {
@@ -200,19 +184,19 @@ import LoginOTP from '../components/LoginOTP.jsx'
       activate(0)
     }
 
-    async function loadHistory() {
-      const session = loadSession()
-      if (!session) {
-        historyStateEl.innerText = 'Menunggu login'
-        setEmptyState('Silakan login dulu untuk melihat riwayat pesanan.')
+    async function loadHistory(phone) {
+      const normalized = normalizePhone(phone)
+      if (!normalized) {
+        historyStateEl.innerText = 'Menunggu nomor WhatsApp'
+        setEmptyState('Silakan masukkan nomor WhatsApp untuk melihat riwayat pesanan.')
+        historyDetailEl.innerHTML = '<p class="history-empty">Belum ada pesanan dipilih.</p>'
         return
       }
 
       historyStateEl.innerText = 'Memuat riwayat...'
       try {
         const url = new URL('/api/customer-orders', window.location.origin)
-        url.searchParams.set('phone', normalizePhone(session.phone))
-        url.searchParams.set('token', session.token)
+        url.searchParams.set('phone', normalized)
 
         const response = await fetch(url.toString(), { cache: 'no-store' })
         const data = await response.json()
@@ -226,11 +210,12 @@ import LoginOTP from '../components/LoginOTP.jsx'
       }
     }
 
-    window.addEventListener('customer-session-updated', loadHistory)
-    window.addEventListener('customer-session-cleared', loadHistory)
+    window.addEventListener('customer-phone-submitted', (event) => {
+      loadHistory(event.detail?.phone)
+    })
 
-    loadHistory()
-  </script>
+    loadHistory('')
+    </script>
 
   <style>
     :global(body) {
