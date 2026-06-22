@@ -4,19 +4,24 @@ import { supabaseAdmin } from '../../lib/supabase'
 
 const idParam = Astro.params.id
 const id = Number(idParam)
+const isDev = import.meta.env.DEV === true
+const testingMode =
+  Astro.url.searchParams.get('testing') === '1' ||
+  String(import.meta.env.PUBLIC_MIDTRANS_TESTING_MODE || 'false') === 'true'
 
 const { data: pesanan } = supabaseAdmin
-  ? await supabaseAdmin
-      .from('pesanan')
-      .select('id, created_at, total, tipe_pesanan, customer_name, pembayaran(snap_token, status), detail_pesanan(*, menu(*))')
-      .eq('id', id)
-      .maybeSingle()
+    ? await supabaseAdmin
+        .from('pesanan')
+        .select('id, status, created_at, total, tipe_pesanan, customer_name, pembayaran(snap_token, status), detail_pesanan(*, menu(*))')
+        .eq('id', id)
+        .maybeSingle()
   : { data: null }
 
 const paymentRaw = pesanan?.pembayaran
 const pembayaran = Array.isArray(paymentRaw) ? paymentRaw[0] : paymentRaw
 const snapToken = pembayaran?.snap_token || ''
 const paymentStatus = pembayaran?.status || 'pending'
+const orderStatus = pesanan?.status || 'menunggu_pembayaran'
 const menuItems = pesanan?.detail_pesanan || []
 const createdAt = pesanan?.created_at || null
 const deadlineTimestamp = createdAt ? Date.parse(createdAt) + 15 * 60 * 1000 : null
@@ -46,7 +51,7 @@ const orderLabel = String(idParam).startsWith('ORD-') ? `#${idParam}` : `#ORD-${
               Order ID: <strong class="text-slate-900">{orderLabel}</strong>
             </span>
             <span id="payment-status-badge" class="rounded-full bg-[#FEF3C7] px-4 py-2 text-sm font-bold text-[#92400e] ring-1 ring-[#f59e0b]/20">
-              Menunggu pembayaran
+              {orderStatus === 'diproses' ? 'Pesanan Sedang Diproses' : paymentStatus === 'paid' ? 'Pembayaran Diterima' : 'Menunggu pembayaran'}
             </span>
           </div>
         </div>
@@ -157,7 +162,11 @@ const orderLabel = String(idParam).startsWith('ORD-') ? `#${idParam}` : `#ORD-${
 
             <div class="rounded-2xl bg-[#fdf8f5] p-4 ring-1 ring-slate-200">
               <p id="statusText" class="text-sm font-bold text-slate-900">
-                {paymentStatus === 'paid' ? 'Pembayaran diterima' : 'Menunggu pembayaran'}
+                {orderStatus === 'diproses'
+                  ? 'Pesanan Sedang Diproses'
+                  : paymentStatus === 'paid'
+                    ? 'Pembayaran Diterima'
+                    : 'Menunggu pembayaran'}
               </p>
               <p class="mt-1 text-sm text-slate-600">
                 Status diambil dari data pembayaran yang tersimpan di Supabase.
@@ -188,6 +197,28 @@ const orderLabel = String(idParam).startsWith('ORD-') ? `#${idParam}` : `#ORD-${
               Setelah tombol ditekan, Midtrans Snap akan dibuka menggunakan snap_token yang sudah tersimpan di Supabase.
             </p>
           </article>
+
+          {(isDev || testingMode) && (
+            <article class="rounded-[1.75rem] bg-white p-5 shadow-[0_18px_50px_rgba(43,31,26,0.08)] ring-1 ring-slate-200 sm:p-6">
+              <div class="mb-4">
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-[#e76f51]">Development</p>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Simulasi</h2>
+              </div>
+
+              <button
+                id="simulatePaymentButton"
+                type="button"
+                class="inline-flex w-full items-center justify-center rounded-2xl border border-[#2A9D8F] px-4 py-3 text-sm font-black text-[#2A9D8F] transition hover:bg-[#2A9D8F] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!snapToken}
+              >
+                Simulasi Pembayaran Berhasil
+              </button>
+
+              <p class="mt-3 text-xs leading-5 text-slate-500">
+                Tombol ini hanya tampil di development atau testing mode.
+              </p>
+            </article>
+          )}
         </aside>
       </div>
     </section>
@@ -196,6 +227,7 @@ const orderLabel = String(idParam).startsWith('ORD-') ? `#${idParam}` : `#ORD-${
   <div
     id="payment-config"
     hidden
+    data-order-id={id}
     data-snap-token={snapToken}
     data-deadline={String(deadlineTimestamp || '')}
     data-midtrans-client-key={import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || ''}

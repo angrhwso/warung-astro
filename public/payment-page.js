@@ -12,6 +12,7 @@
   const statusTextEl = document.getElementById('statusText')
   const snapBox = document.getElementById('snapBox')
   const openPaymentButton = document.getElementById('openPaymentButton')
+  const simulatePaymentButton = document.getElementById('simulatePaymentButton')
 
   function formatCountdown(ms) {
     const total = Math.max(0, Math.floor(ms / 1000))
@@ -67,7 +68,42 @@
     }
   }
 
+  async function simulatePayment() {
+    if (!snapToken) {
+      if (snapBox) snapBox.textContent = 'Snap token belum tersedia.'
+      return
+    }
+
+    try {
+      if (simulatePaymentButton) {
+        simulatePaymentButton.disabled = true
+        simulatePaymentButton.textContent = 'Memproses simulasi...'
+      }
+
+      const response = await fetch('/api/midtrans/simulate-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_pesanan: Number(configEl.dataset.orderId || 0) || null }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) throw new Error(data.error || 'Simulasi pembayaran gagal')
+
+      if (statusBadgeEl) statusBadgeEl.textContent = 'Pesanan Sedang Diproses'
+      if (statusTextEl) statusTextEl.textContent = 'Pesanan Sedang Diproses'
+      window.location.reload()
+    } catch (error) {
+      console.error(error)
+      if (snapBox) snapBox.textContent = 'Simulasi pembayaran gagal.'
+      if (simulatePaymentButton) {
+        simulatePaymentButton.disabled = false
+        simulatePaymentButton.textContent = 'Simulasi Pembayaran Berhasil'
+      }
+    }
+  }
+
   openPaymentButton?.addEventListener('click', openSnap)
+  simulatePaymentButton?.addEventListener('click', simulatePayment)
   tickCountdown()
   window.setInterval(tickCountdown, 1000)
 })()
