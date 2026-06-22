@@ -21,8 +21,8 @@ export async function POST({ request }) {
   try {
     if (!supabaseAdmin) return json({ error: 'SUPABASE_SERVICE_ROLE_KEY belum diset' }, 500)
 
-    console.log('MIDTRANS WEBHOOK MASUK', payload)
-    const payload = await request.json()
+      const payload = await request.json()
+      console.log('MIDTRANS WEBHOOK MASUK', payload)
     const { order_id, transaction_status, transaction_id, fraud_status } = payload
 
     if (!order_id) return json({ ok: false, message: 'order_id wajib ada' }, 400)
